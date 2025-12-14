@@ -50,7 +50,7 @@ class DatabaseORMTableData(rorm.Table):
     __comment__ = 'File data table.'
     md5: str = rorm.Field(rorm.types.CHAR(32), key=True, comment='File MD5.')
     size: int = rorm.Field(not_null=True, comment='File bytes size.')
-    path: str = rorm.Field(rorm.types.VARCHAR(4095), not_null=True, comment='File disk storage path.')
+    path: str = rorm.Field(rorm.types.VARCHAR(4095), not_null=True, comment='File disk storage relative path.')
 
 
 def build_db_file(engine: DatabaseEngine | DatabaseEngineAsync) -> None:
@@ -219,7 +219,7 @@ async def upload_file(
     name: str = Bind.i.forms_n,
     note: str = Bind.i.forms_n,
     sess: Bind.Sess = Bind.sess.file,
-    server: Bind.Server = Bind.server # type: ignore
+    server: Bind.Server = Bind.server
 ) -> DatabaseORMTableInfo:
     """
     Upload file.
@@ -235,7 +235,7 @@ async def upload_file(
     File information.
     """
 
-    # Handle parameter.
+    # Parameter.
     file_store = server.api_file_store
     file_bytes = await file.read()
     file_md5 = get_md5(file_bytes)
@@ -247,10 +247,11 @@ async def upload_file(
     ## Data.
     if file_path is None:
         file_path = file_store.store(file_bytes)
+        file_relpath = file_store.get_relpath(file_path)
         table_data = DatabaseORMTableData(
             md5=file_md5,
             size=file_size,
-            path=file_path
+            path=file_relpath
         )
         await sess.add(table_data)
 
@@ -271,7 +272,8 @@ async def upload_file(
 @router_file.get('/files/{file_id}/download')
 async def download_file(
     file_id: int = Bind.i.path,
-    conn: Bind.Conn = Bind.conn.file
+    conn: Bind.Conn = Bind.conn.file,
+    server: Bind.Server = Bind.server
 ) -> FileResponse:
     """
     Download file.
@@ -284,6 +286,9 @@ async def download_file(
     -------
     File data.
     """
+
+    # Parameter.
+    file_store = server.api_file_store
 
     # Search.
     sql = (
@@ -302,9 +307,10 @@ async def download_file(
     # Check.
     if result.empty:
         exit_api(404)
-    file_name, file_path = result.first()
 
     # Response.
-    response = FileResponse(file_path, filename=file_name)
+    file_name, file_relpath = result.first()
+    file_abspath = file_store.get_abspath(file_relpath)
+    response = FileResponse(file_abspath, filename=file_name)
 
     return response

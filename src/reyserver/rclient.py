@@ -150,7 +150,7 @@ class ServerClient(ServerBase):
         File ID.
         """
 
-        # Handle parameter.
+        # Parameter.
         url = join_url(self.url, 'files')
         match source:
 
