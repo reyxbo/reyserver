@@ -67,7 +67,6 @@ class Server(ServerBase, Singleton):
         depend: CoroutineFunctionSimple | Sequence[CoroutineFunctionSimple] | None = None,
         before: CoroutineFunctionSimple | Sequence[CoroutineFunctionSimple] | None = None,
         after: CoroutineFunctionSimple | Sequence[CoroutineFunctionSimple] | None = None,
-        to_https: bool = False,
         debug: bool = False
     ) -> None:
         """
@@ -82,7 +81,6 @@ class Server(ServerBase, Singleton):
         depend : Global api dependencies.
         before : Execute before server start.
         after : Execute after server end.
-        to_https : Whehter redirect http to https.
         debug : Whether use development mode debug server.
         """
 
@@ -117,8 +115,6 @@ class Server(ServerBase, Singleton):
         'Decorator, add middleware to APP.'
         self.app.add_middleware(GZipMiddleware)
         self.app.add_middleware(TrustedHostMiddleware)
-        if to_https:
-            self.app.add_middleware(HTTPSRedirectMiddleware)
         self.__add_base_middleware()
 
 
