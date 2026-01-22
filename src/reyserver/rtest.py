@@ -11,6 +11,7 @@
 
 from typing import Literal
 from fastapi import APIRouter
+from reykit.rtask import async_sleep
 
 from .rbind import Bind
 
@@ -53,6 +54,27 @@ def test_echo(data: dict = Bind.i.body) -> dict:
     Echo data.
     """
 
-    # Resposne.
-
     return data
+
+
+@router_test.get('/test/wait')
+def test_wait(second: float = Bind.Query(1, gt=0, le=10)) -> Literal['test']:
+    """
+    Wait test.
+
+    Paremeters
+    ----------
+    second : Wait seconds, range is `(0-10]`.
+
+    Returns
+    -------
+    Text `test`.
+    """
+
+    # Sleep.
+    async_sleep(second)
+
+    # Resposne.
+    response = 'test'
+
+    return response
