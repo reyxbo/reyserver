@@ -25,7 +25,7 @@ router_redirect = APIRouter()
 
 
 @router_redirect.get('/{path:path}')
-def redirect_all(
+async def redirect_all(
     path: str = Bind.i.path,
     server: Bind.Server = Bind.server
 ) -> RedirectResponse:

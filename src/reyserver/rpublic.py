@@ -25,7 +25,7 @@ router_public = APIRouter()
 
 
 @router_public.get('/')
-def home(server: Bind.Server = Bind.server) -> HTMLResponse:
+async def home(server: Bind.Server = Bind.server) -> HTMLResponse:
     """
     Home page.
 
@@ -46,7 +46,7 @@ def home(server: Bind.Server = Bind.server) -> HTMLResponse:
 
 
 @router_public.get('/public/{path:path}')
-def download_public_file(path: str = Bind.i.path) -> FileResponse:
+async def download_public_file(path: str = Bind.i.path) -> FileResponse:
     """
     Download public file.
 
@@ -59,4 +59,4 @@ def download_public_file(path: str = Bind.i.path) -> FileResponse:
     File.
     """
 
-    ...
+    pass
