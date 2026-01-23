@@ -329,7 +329,7 @@ async def get_user_data(
     User data or null.
     """
 
-    # Parameters.
+    # Parameter.
     if filter_invalid:
         sql_where_user = (
             '    WHERE (\n'

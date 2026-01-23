@@ -17,9 +17,9 @@ from uvicorn import run as uvicorn_run
 from starlette.middleware.base import _StreamingResponse
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 from fastapi_cache import FastAPICache
 from redis.asyncio import Redis
 from reydb import DatabaseAsync
@@ -319,6 +319,34 @@ class Server(ServerBase, Singleton):
         for key, value in set_dict.items():
             if value is not None:
                 setattr(self.app, key, value)
+
+
+    def set_cors(
+            self,
+            origin: str | Sequence[str],
+            method: str | Sequence[str] = "GET"
+        ) -> None:
+        """
+        Set CORS policy.
+
+        Parameters
+        ----------
+        origin : Allow origin host. Wildcard is `*`.
+        method : Allow request method. Wildcard is `*`.
+        """
+
+        # Parameter.
+        if type(origin) == str:
+            origin = (origin,)
+        if type(method) == str:
+            method = (method,)
+
+        # Set.
+        self.app.add_middleware(
+            CORSMiddleware,
+            allow_origins=origin,
+            allow_methods=method
+        )
 
 
     def add_api_test(self) -> None:
