@@ -110,8 +110,23 @@ class Server(ServerBase, Singleton):
             server=self
         )
 
-        # Middleware
+        ## Shortcut.
+        self.extra = self.app.extra
+        self.routes = self.app.routes
+        self.get = self.app.get
+        self.post = self.app.post
+        self.put = self.app.put
+        self.patch = self.app.patch
+        self.delete = self.app.delete
+        self.options = self.app.options
+        self.head = self.app.head
+        self.trace = self.app.trace
         self.wrap_middleware = self.app.middleware('http')
+        self.wrap_exception_handler = self.app.exception_handler
+        self.mount = self.app.mount
+        self.add_router = self.app.include_router
+
+        # Middleware
         'Decorator, add middleware to APP.'
         self.app.add_middleware(GZipMiddleware)
         self.app.add_middleware(TrustedHostMiddleware)
@@ -357,7 +372,7 @@ class Server(ServerBase, Singleton):
         from .rtest import router_test
 
         # Add.
-        self.app.include_router(router_test, tags=['test'])
+        self.add_router(router_test, tags=['test'])
 
 
     def add_api_public(self, public_dir: str) -> None:
@@ -376,8 +391,8 @@ class Server(ServerBase, Singleton):
         # Add.
         self.api_public_dir = public_dir
         subapp = StaticFiles(directory=public_dir)
-        self.app.mount('/public', subapp)
-        self.app.include_router(router_public, tags=['public'])
+        self.mount('/public', subapp)
+        self.add_router(router_public, tags=['public'])
 
 
     def add_api_redirect_all(self, server_url: str) -> None:
@@ -394,7 +409,7 @@ class Server(ServerBase, Singleton):
 
         # Add.
         self.api_redirect_server_url = server_url
-        self.app.include_router(router_redirect, tags=['redirect'])
+        self.add_router(router_redirect, tags=['redirect'])
 
 
     def add_api_auth(self, key: str | None = None, sess_seconds: int = 28800) -> None:
@@ -427,7 +442,7 @@ class Server(ServerBase, Singleton):
         # Add.
         self.api_auth_key = key
         self.api_auth_sess_seconds = sess_seconds
-        self.app.include_router(router_auth, tags=['auth'])
+        self.add_router(router_auth, tags=['auth'])
         self.is_started_auth = True
 
 
@@ -454,7 +469,7 @@ class Server(ServerBase, Singleton):
 
         # Add.
         self.api_file_store = FileStore(file_dir)
-        self.app.include_router(router_file, tags=['file'], dependencies=(Bind.token,))
+        self.add_router(router_file, tags=['file'], dependencies=(Bind.token,))
 
 
 Bind.Server = Server
