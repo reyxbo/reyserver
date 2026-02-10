@@ -9,7 +9,7 @@
 """
 
 
-from typing import Literal
+from typing import Literal, overload
 from collections.abc import Sequence, Callable, Coroutine
 from inspect import iscoroutinefunction
 from contextlib import asynccontextmanager, _AsyncGeneratorContextManager
@@ -66,8 +66,7 @@ class Server(ServerBase, Singleton):
         redis_expire: int | None = None,
         depend: CoroutineFunctionSimple | Sequence[CoroutineFunctionSimple] | None = None,
         before: CoroutineFunctionSimple | Sequence[CoroutineFunctionSimple] | None = None,
-        after: CoroutineFunctionSimple | Sequence[CoroutineFunctionSimple] | None = None,
-        debug: bool = False
+        after: CoroutineFunctionSimple | Sequence[CoroutineFunctionSimple] | None = None
     ) -> None:
         """
         Build instance attributes.
@@ -81,7 +80,6 @@ class Server(ServerBase, Singleton):
         depend : Global api dependencies.
         before : Execute before server start.
         after : Execute after server end.
-        debug : Whether use development mode debug server.
         """
 
         # Parameter.
@@ -106,7 +104,6 @@ class Server(ServerBase, Singleton):
         self.app = FastAPI(
             dependencies=depend,
             lifespan=lifespan,
-            debug=debug,
             server=self
         )
 
@@ -243,6 +240,36 @@ class Server(ServerBase, Singleton):
             return response
 
 
+    @overload
+    def run(
+        self,
+        app: str,
+        host: str = '127.0.0.1',
+        port: int = 8000,
+        workers: int = 1,
+        ssl_cert: str | None = None,
+        ssl_key: str | None = None
+    ) -> None: ...
+
+    @overload
+    def run(
+        self,
+        app: str,
+        host: str = '127.0.0.1',
+        port: int = 8000,
+        *,
+        debug: Literal[True]
+    ) -> None: ...
+
+    @overload
+    def run(
+        self,
+        host: str = '127.0.0.1',
+        port: int = 8000,
+        ssl_cert: str | None = None,
+        ssl_key: str | None = None
+    ) -> None: ...
+
     def run(
         self,
         app: str | None = None,
@@ -250,7 +277,8 @@ class Server(ServerBase, Singleton):
         port: int = 8000,
         workers: int = 1,
         ssl_cert: str | None = None,
-        ssl_key: str | None = None
+        ssl_key: str | None = None,
+        debug: bool = False
     ) -> None:
         """
         Run server.
@@ -266,6 +294,7 @@ class Server(ServerBase, Singleton):
         workers: Number of server work processes.
         ssl_cert : SSL certificate file path.
         ssl_key : SSL key file path.
+        debug: Whether to use debug model and automatic reload.
 
         Examples
         --------
@@ -284,8 +313,10 @@ class Server(ServerBase, Singleton):
             throw(AssertionError, ssl_cert, ssl_key)
         if app is None:
             app = self.app
+        app: str | FastAPI
         if workers == 1:
             workers = None
+        self.app.debug = debug
 
         # Run.
         uvicorn_run(
@@ -293,6 +324,7 @@ class Server(ServerBase, Singleton):
             host=host,
             port=port,
             workers=workers,
+            reload=debug,
             ssl_certfile=ssl_cert,
             ssl_keyfile=ssl_key
         )
