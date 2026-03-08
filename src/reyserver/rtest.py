@@ -8,21 +8,17 @@
 @Explain : Test methods.
 """
 
-
 from typing import Literal
 from fastapi import APIRouter
 from reykit.rtask import async_sleep
 
 from .rbind import Bind
 
-
 __all__ = (
     'router_test',
 )
 
-
 router_test = APIRouter()
-
 
 @router_test.get('/test')
 async def test() -> Literal['test']:
@@ -39,7 +35,6 @@ async def test() -> Literal['test']:
 
     return response
 
-
 @router_test.post('/test/echo')
 async def test_echo(data: dict = Bind.i.body) -> dict:
     """
@@ -55,7 +50,6 @@ async def test_echo(data: dict = Bind.i.body) -> dict:
     """
 
     return data
-
 
 @router_test.get('/test/wait')
 async def test_wait(second: float = Bind.Query(1, gt=0, le=10)) -> Literal['test']:

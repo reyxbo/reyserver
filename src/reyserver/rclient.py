@@ -8,7 +8,6 @@
 @Explain : Client methods.
 """
 
-
 from typing import TypedDict
 from datetime import datetime as Datetime
 from requests import Response
@@ -18,20 +17,16 @@ from reykit.rnet import join_url, request, get_response_file_name
 
 from .rbase import ServerBase
 
-
 __all__ = (
     'ServerClient',
 )
 
-
 FileInfo = TypedDict('FileInfo', {'create_time': Datetime, 'md5': str, 'name': str | None, 'size': int, 'note': str | None})
-
 
 class ServerClient(ServerBase):
     """
     Server client type.
     """
-
 
     def __init__(
         self,
@@ -55,7 +50,6 @@ class ServerClient(ServerBase):
         self.url = url
         self.token = self.get_token(username, password)
         self.request = copy_type_hints(self._request, request)
-
 
     def get_token(
         self,
@@ -88,7 +82,6 @@ class ServerClient(ServerBase):
         token = response_dict['access_token']
 
         return token
-
 
     def _request(self, *args, **kwargs) -> Response:
         """
@@ -124,7 +117,6 @@ class ServerClient(ServerBase):
         response = request(*args, **kwargs)
 
         return response
-
 
     def upload_file(
         self,
@@ -182,7 +174,6 @@ class ServerClient(ServerBase):
 
         return file_id
 
-
     @overload
     def download_file(
         self,
@@ -239,7 +230,6 @@ class ServerClient(ServerBase):
             file = File(path)
             file(file_bytes)
             return file.path
-
 
     def get_file_info(
         self,

@@ -8,7 +8,6 @@
 @Explain : Cache methods.
 """
 
-
 from typing import Any
 from collections.abc import Callable
 from inspect import  iscoroutinefunction
@@ -22,12 +21,10 @@ from reykit.rbase import CallableT
 from reykit.ros import get_md5
 from reykit.rre import sub
 
-
 __all__ = (
     'init_cache',
     'wrap_cache'
 )
-
 
 def init_cache(redis: Redis, redis_expire: int | None = None) -> None:
     """
@@ -38,7 +35,6 @@ def init_cache(redis: Redis, redis_expire: int | None = None) -> None:
     redis : Asynchronous Redis
     redis_expire : Redis cache expire seconds.
     """
-
 
     def key_builder(
         func: Callable,
@@ -71,7 +67,6 @@ def init_cache(redis: Redis, redis_expire: int | None = None) -> None:
 
         return key
 
-
     # Initialize.
     backend = RedisBackend(redis)
     FastAPICache.init(
@@ -80,7 +75,6 @@ def init_cache(redis: Redis, redis_expire: int | None = None) -> None:
         coder=PickleCoder,
         key_builder=key_builder
     )
-
 
 def wrap_cache(func_or_expire: CallableT | int | None = None) -> CallableT | Callable[[CallableT], CallableT]:
     """

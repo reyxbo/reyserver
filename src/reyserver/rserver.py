@@ -8,7 +8,6 @@
 @Explain : Server methods.
 """
 
-
 from typing import Literal, overload
 from collections.abc import Sequence, Callable, Coroutine
 from inspect import iscoroutinefunction
@@ -31,11 +30,9 @@ from .rbase import ServerBase
 from .rbind import Bind
 from .rcache import init_cache
 
-
 __all__ = (
     'Server',
 )
-
 
 class Server(ServerBase, Singleton):
     """
@@ -56,7 +53,6 @@ class Server(ServerBase, Singleton):
     'Authentication API session valid seconds.'
     api_file_store: FileStore
     'File API store instance.'
-
 
     def __init__(
         self,
@@ -129,7 +125,6 @@ class Server(ServerBase, Singleton):
         self.app.add_middleware(TrustedHostMiddleware)
         self.__add_base_middleware()
 
-
     def __create_lifespan(
         self,
         before: CoroutineFunctionSimple | Sequence[CoroutineFunctionSimple] | None,
@@ -161,7 +156,6 @@ class Server(ServerBase, Singleton):
             after = ()
         elif iscoroutinefunction(after):
             after = (after,)
-
 
         @asynccontextmanager
         async def lifespan(app: FastAPI):
@@ -198,9 +192,7 @@ class Server(ServerBase, Singleton):
             if self.db is not None:
                 await self.db.dispose_all()
 
-
         return lifespan
-
 
     def __add_base_middleware(self) -> None:
         """
@@ -238,7 +230,6 @@ class Server(ServerBase, Singleton):
                 response.headers.setdefault('WWW-Authenticate', 'Bearer')
 
             return response
-
 
     @overload
     def run(
@@ -329,9 +320,7 @@ class Server(ServerBase, Singleton):
             ssl_keyfile=ssl_key
         )
 
-
     __call__ = run
-
 
     def set_doc(
         self,
@@ -367,7 +356,6 @@ class Server(ServerBase, Singleton):
             if value is not None:
                 setattr(self.app, key, value)
 
-
     def set_cors(
             self,
             origin: str | Sequence[str],
@@ -395,7 +383,6 @@ class Server(ServerBase, Singleton):
             allow_methods=method
         )
 
-
     def add_api_test(self) -> None:
         """
         Add test API.
@@ -405,7 +392,6 @@ class Server(ServerBase, Singleton):
 
         # Add.
         self.add_router(router_test, tags=['test'])
-
 
     def add_api_public(self, public_dir: str) -> None:
         """
@@ -426,7 +412,6 @@ class Server(ServerBase, Singleton):
         self.mount('/public', subapp)
         self.add_router(router_public, tags=['public'])
 
-
     def add_api_redirect_all(self, server_url: str) -> None:
         """
         Add redirect all API.
@@ -442,7 +427,6 @@ class Server(ServerBase, Singleton):
         # Add.
         self.api_redirect_server_url = server_url
         self.add_router(router_redirect, tags=['redirect'])
-
 
     def add_api_auth(self, key: str | None = None, sess_seconds: int = 28800) -> None:
         """
@@ -477,7 +461,6 @@ class Server(ServerBase, Singleton):
         self.add_router(router_auth, tags=['auth'])
         self.is_started_auth = True
 
-
     def add_api_file(self, file_dir: str = 'file') -> None:
         """
         Add file API.
@@ -502,6 +485,5 @@ class Server(ServerBase, Singleton):
         # Add.
         self.api_file_store = FileStore(file_dir)
         self.add_router(router_file, tags=['file'], dependencies=(Bind.token,))
-
 
 Bind.Server = Server

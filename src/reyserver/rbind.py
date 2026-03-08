@@ -8,7 +8,6 @@
 @Explain : Dependency bind methods.
 """
 
-
 from typing import overload, TYPE_CHECKING
 from fastapi import FastAPI, Request, UploadFile
 from fastapi.params import (
@@ -28,7 +27,6 @@ from reykit.rbase import StaticMeta, Singleton, throw
 from . import rserver
 from .rbase import ServerBase, depend_pass
 
-
 __all__ = (
     'ServerBindInstanceDatabaseSuper',
     'ServerBindInstanceDatabaseConnection',
@@ -38,12 +36,10 @@ __all__ = (
     'Bind'
 )
 
-
 class ServerBindInstanceDatabaseSuper(ServerBase):
     """
     Server API bind parameter build database instance super type.
     """
-
 
     def __getattr__(self, name: str) -> Depends:
         """
@@ -60,7 +56,6 @@ class ServerBindInstanceDatabaseSuper(ServerBase):
         -------
         Dependencie instance.
         """
-
 
         async def depend_func(server: Bind.Server = Bind.server):
             """
@@ -83,36 +78,30 @@ class ServerBindInstanceDatabaseSuper(ServerBase):
                     async with engine.orm.session() as sess:
                         yield sess
 
-
         # Create.
         depend = Depends(depend_func)
 
         return depend
-
 
     @overload
     def __getitem__(self, engine: str) -> DatabaseConnectionAsync: ...
 
     __getitem__ = __getattr__
 
-
 class ServerBindInstanceDatabaseConnection(ServerBindInstanceDatabaseSuper, Singleton):
     """
     Server API bind parameter build database connection instance type, singleton mode.
     """
-
 
 class ServerBindInstanceDatabaseSession(ServerBindInstanceDatabaseSuper, Singleton):
     """
     Server API bind parameter build database session instance type, singleton mode.
     """
 
-
 class ServerBindInstance(ServerBase, Singleton):
     """
     Server API bind parameter build instance type.
     """
-
 
     @property
     def path(self) -> Path:
@@ -125,7 +114,6 @@ class ServerBindInstance(ServerBase, Singleton):
 
         return path
 
-
     @property
     def query(self) -> Query:
         """
@@ -136,7 +124,6 @@ class ServerBindInstance(ServerBase, Singleton):
         query = Query()
 
         return query
-
 
     @property
     def header(self) -> Header:
@@ -149,7 +136,6 @@ class ServerBindInstance(ServerBase, Singleton):
 
         return header
 
-
     @property
     def cookie(self) -> Cookie:
         """
@@ -160,7 +146,6 @@ class ServerBindInstance(ServerBase, Singleton):
         cookie = Cookie()
 
         return cookie
-
 
     @property
     def body(self) -> Body:
@@ -173,7 +158,6 @@ class ServerBindInstance(ServerBase, Singleton):
 
         return body
 
-
     @property
     def form(self) -> Form:
         """
@@ -184,7 +168,6 @@ class ServerBindInstance(ServerBase, Singleton):
         form = Form()
 
         return form
-
 
     @property
     def forms(self) -> Forms:
@@ -197,7 +180,6 @@ class ServerBindInstance(ServerBase, Singleton):
 
         return forms
 
-
     @property
     def query_n(self) -> Query:
         """
@@ -208,7 +190,6 @@ class ServerBindInstance(ServerBase, Singleton):
         query = Query(None)
 
         return query
-
 
     @property
     def header_n(self) -> Header:
@@ -221,7 +202,6 @@ class ServerBindInstance(ServerBase, Singleton):
 
         return header
 
-
     @property
     def cookie_n(self) -> Cookie:
         """
@@ -232,7 +212,6 @@ class ServerBindInstance(ServerBase, Singleton):
         cookie = Cookie(None)
 
         return cookie
-
 
     @property
     def body_n(self) -> Body:
@@ -245,7 +224,6 @@ class ServerBindInstance(ServerBase, Singleton):
 
         return body
 
-
     @property
     def form_n(self) -> Form:
         """
@@ -257,7 +235,6 @@ class ServerBindInstance(ServerBase, Singleton):
 
         return form
 
-
     @property
     def forms_n(self) -> Forms:
         """
@@ -268,7 +245,6 @@ class ServerBindInstance(ServerBase, Singleton):
         forms = Forms(None)
 
         return forms
-
 
 async def depend_server(request: Request) -> 'rserver.Server':
     """
@@ -288,7 +264,6 @@ async def depend_server(request: Request) -> 'rserver.Server':
     server: rserver.Server = app.extra['server']
 
     return server
-
 
 class ServerBind(ServerBase, metaclass=StaticMeta):
     """
@@ -330,6 +305,5 @@ class ServerBind(ServerBase, metaclass=StaticMeta):
     'Server API bind parameter asynchronous database session.'
     token: Depend = depend_pass
     'Server authentication token dependency type.'
-
 
 Bind = ServerBind

@@ -8,21 +8,17 @@
 @Explain : Redirect methods.
 """
 
-
 from fastapi import APIRouter
 from fastapi.responses import RedirectResponse
 from reykit.rnet import join_url
 
 from .rbind import Bind
 
-
 __all__ = (
     'router_redirect',
 )
 
-
 router_redirect = APIRouter()
-
 
 @router_redirect.get('/{path:path}')
 async def redirect_all(

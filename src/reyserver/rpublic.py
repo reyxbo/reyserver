@@ -8,21 +8,17 @@
 @Explain : Public methods.
 """
 
-
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, FileResponse
 from reykit.ros import File, Folder
 
 from .rbind import Bind
 
-
 __all__ = (
     'router_public',
 )
 
-
 router_public = APIRouter()
-
 
 @router_public.get('/')
 async def home(server: Bind.Server = Bind.server) -> HTMLResponse:
@@ -43,7 +39,6 @@ async def home(server: Bind.Server = Bind.server) -> HTMLResponse:
     response = HTMLResponse(file.str)
 
     return response
-
 
 @router_public.get('/public/{path:path}')
 async def download_public_file(path: str = Bind.i.path) -> FileResponse:

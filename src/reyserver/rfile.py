@@ -8,7 +8,6 @@
 @Explain : File methods. Can create database used "self.build_db" function.
 """
 
-
 from fastapi import APIRouter
 from fastapi.responses import FileResponse
 from reydb import rorm, DatabaseEngine, DatabaseEngineAsync
@@ -18,14 +17,12 @@ from .rbase import exit_api
 from .rbind import Bind
 from .rcache import wrap_cache
 
-
 __all__ = (
     'DatabaseORMTableInfo',
     'DatabaseORMTableData',
     'build_db_file',
     'router_file'
 )
-
 
 class DatabaseORMTableInfo(rorm.Table):
     """
@@ -40,7 +37,6 @@ class DatabaseORMTableInfo(rorm.Table):
     name: str = rorm.Field(rorm.types.VARCHAR(260), index_n=True, comment='File name.')
     note: str = rorm.Field(rorm.types.VARCHAR(500), comment='File note.')
 
-
 class DatabaseORMTableData(rorm.Table):
     """
     Database "data" table ORM model.
@@ -51,7 +47,6 @@ class DatabaseORMTableData(rorm.Table):
     md5: str = rorm.Field(rorm.types.CHAR(32), key=True, comment='File MD5.')
     size: int = rorm.Field(not_null=True, comment='File bytes size.')
     path: str = rorm.Field(rorm.types.VARCHAR(4095), not_null=True, comment='File disk storage relative path.')
-
 
 def build_db_file(engine: DatabaseEngine | DatabaseEngineAsync) -> None:
     """
@@ -181,9 +176,7 @@ def build_db_file(engine: DatabaseEngine | DatabaseEngineAsync) -> None:
     # Build.
     engine.sync_engine.build.build(tables=tables, views=views, views_stats=views_stats, skip=True)
 
-
 router_file = APIRouter()
-
 
 @router_file.get('/files/{file_id}')
 @wrap_cache
@@ -211,7 +204,6 @@ async def get_file_info(
         exit_api(404)
 
     return table_info
-
 
 @router_file.post('/files')
 async def upload_file(
@@ -267,7 +259,6 @@ async def upload_file(
     await sess.flush()
 
     return table_info
-
 
 @router_file.get('/files/{file_id}/download')
 async def download_file(

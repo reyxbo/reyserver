@@ -8,7 +8,6 @@
 @Explain : Authentication methods.
 """
 
-
 from typing import Any, TypedDict, NotRequired, Literal
 from datetime import datetime as Datetime
 from fastapi import APIRouter, Request
@@ -21,7 +20,6 @@ from reykit.rtime import now
 from .rbase import exit_api
 from .rbind import Bind
 
-
 __all__ = (
     'DatabaseORMTableUser',
     'DatabaseORMTableRole',
@@ -31,7 +29,6 @@ __all__ = (
     'build_db_auth',
     'router_auth'
 )
-
 
 UserData = TypedDict(
     'UserData',
@@ -68,7 +65,6 @@ JSONToken = TypedDict(
     }
 )
 
-
 class DatabaseORMTableUser(rorm.Table):
     """
     Database "user" table ORM model.
@@ -86,7 +82,6 @@ class DatabaseORMTableUser(rorm.Table):
     avatar: int = rorm.Field(comment='User avatar file ID.')
     is_valid: bool = rorm.Field(field_default='TRUE', not_null=True, comment='Is the valid.')
 
-
 class DatabaseORMTableRole(rorm.Table):
     """
     Database "role" table ORM model.
@@ -100,7 +95,6 @@ class DatabaseORMTableRole(rorm.Table):
     name: str = rorm.Field(rorm.types.VARCHAR(50), not_null=True, index_u=True, comment='Role name.')
     desc: str = rorm.Field(rorm.types.VARCHAR(500), comment='Role description.')
     is_valid: bool = rorm.Field(field_default='TRUE', not_null=True, comment='Is the valid.')
-
 
 class DatabaseORMTablePerm(rorm.Table):
     """
@@ -120,7 +114,6 @@ class DatabaseORMTablePerm(rorm.Table):
     )
     is_valid: bool = rorm.Field(field_default='TRUE', not_null=True, comment='Is the valid.')
 
-
 class DatabaseORMTableUserRole(rorm.Table):
     """
     Database "user_role" table ORM model.
@@ -133,7 +126,6 @@ class DatabaseORMTableUserRole(rorm.Table):
     user_id: int = rorm.Field(key=True, comment='User ID.')
     role_id: int = rorm.Field(rorm.types.SMALLINT, key=True, comment='Role ID.')
 
-
 class DatabaseORMTableRolePerm(rorm.Table):
     """
     Database "role_perm" table ORM model.
@@ -145,7 +137,6 @@ class DatabaseORMTableRolePerm(rorm.Table):
     update_time: rorm.Datetime = rorm.Field(field_default=':time', arg_default=now, not_null=True, index_n=True, comment='Record update time.')
     role_id: int = rorm.Field(rorm.types.SMALLINT, key=True, comment='Role ID.')
     perm_id: int = rorm.Field(rorm.types.SMALLINT, key=True, comment='Permission ID.')
-
 
 def build_db_auth(engine: DatabaseEngine | DatabaseEngineAsync) -> None:
     """
@@ -238,14 +229,12 @@ def build_db_auth(engine: DatabaseEngine | DatabaseEngineAsync) -> None:
     # Build.
     engine.sync_engine.build.build(tables=tables, views_stats=views_stats, skip=True)
 
-
 bearer = OAuth2PasswordBearer(
     tokenUrl='/token',
     scheme_name='OAuth2Password',
     description='Authentication of OAuth2 password model.',
     auto_error=False
 )
-
 
 async def depend_token(
     request: Request,
@@ -299,11 +288,9 @@ async def depend_token(
 
     return token_data
 
-
 Bind.token = Bind.Depend(depend_token)
 
 router_auth = APIRouter()
-
 
 async def get_user_data(
     conn: Bind.Conn,
@@ -416,7 +403,6 @@ async def get_user_data(
         }
 
     return info
-
 
 @router_auth.post('/token')
 async def create_token(
