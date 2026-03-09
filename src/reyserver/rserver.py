@@ -383,15 +383,21 @@ class Server(ServerBase, Singleton):
             allow_methods=method
         )
 
-    def add_api_test(self) -> None:
+    def add_api_redirect_all(self, server_url: str) -> None:
         """
-        Add test API.
+        Add redirect all API.
+        Redirect all requests to the target server.
+
+        Parameters
+        ----------
+        server_url : Target server URL.
         """
 
-        from .rtest import router_test
+        from .rredirect import router_redirect
 
         # Add.
-        self.add_router(router_test, tags=['test'])
+        self.api_redirect_server_url = server_url
+        self.add_router(router_redirect, tags=['redirect'])
 
     def add_api_public(self, public_dir: str) -> None:
         """
@@ -412,21 +418,15 @@ class Server(ServerBase, Singleton):
         self.mount('/public', subapp)
         self.add_router(router_public, tags=['public'])
 
-    def add_api_redirect_all(self, server_url: str) -> None:
+    def add_api_test(self) -> None:
         """
-        Add redirect all API.
-        Redirect all requests to the target server.
-
-        Parameters
-        ----------
-        server_url : Target server URL.
+        Add test API.
         """
 
-        from .rredirect import router_redirect
+        from .rtest import router_test
 
         # Add.
-        self.api_redirect_server_url = server_url
-        self.add_router(router_redirect, tags=['redirect'])
+        self.add_router(router_test, prefix='/test', tags=['test'])
 
     def add_api_auth(self, key: str | None = None, sess_seconds: int = 28800) -> None:
         """
@@ -458,7 +458,7 @@ class Server(ServerBase, Singleton):
         # Add.
         self.api_auth_key = key
         self.api_auth_sess_seconds = sess_seconds
-        self.add_router(router_auth, tags=['auth'])
+        self.add_router(router_auth, prefix='/auth', tags=['auth'])
         self.is_started_auth = True
 
     def add_api_file(self, file_dir: str = 'file') -> None:
@@ -484,6 +484,6 @@ class Server(ServerBase, Singleton):
 
         # Add.
         self.api_file_store = FileStore(file_dir)
-        self.add_router(router_file, tags=['file'], dependencies=(Bind.token,))
+        self.add_router(router_file, prefix='/files', tags=['file'], dependencies=(Bind.token,))
 
 Bind.Server = Server

@@ -70,7 +70,7 @@ class ServerClient(ServerBase):
         """
 
         # Parameter.
-        url = join_url(self.url, 'token')
+        url = join_url(self.url, 'auth', 'token')
         data = {
             'username': username,
             'password': password

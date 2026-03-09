@@ -20,7 +20,7 @@ __all__ = (
 
 router_test = APIRouter()
 
-@router_test.get('/test')
+@router_test.get('/')
 async def test() -> Literal['test']:
     """
     Test.
@@ -35,7 +35,7 @@ async def test() -> Literal['test']:
 
     return response
 
-@router_test.post('/test/echo')
+@router_test.post('/echo')
 async def test_echo(data: dict = Bind.i.body) -> dict:
     """
     Echo test.
@@ -51,7 +51,7 @@ async def test_echo(data: dict = Bind.i.body) -> dict:
 
     return data
 
-@router_test.get('/test/wait')
+@router_test.get('/wait')
 async def test_wait(second: float = Bind.Query(1, gt=0, le=10)) -> Literal['test']:
     """
     Wait test.

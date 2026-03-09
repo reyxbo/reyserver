@@ -178,7 +178,7 @@ def build_db_file(engine: DatabaseEngine | DatabaseEngineAsync) -> None:
 
 router_file = APIRouter()
 
-@router_file.get('/files/{file_id}')
+@router_file.get('/{file_id}')
 @wrap_cache
 async def get_file_info(
     file_id: int = Bind.i.path,
@@ -205,7 +205,7 @@ async def get_file_info(
 
     return table_info
 
-@router_file.post('/files')
+@router_file.post('/')
 async def upload_file(
     file: Bind.File = Bind.i.forms,
     name: str = Bind.i.forms_n,
@@ -260,7 +260,7 @@ async def upload_file(
 
     return table_info
 
-@router_file.get('/files/{file_id}/download')
+@router_file.get('/{file_id}/download')
 async def download_file(
     file_id: int = Bind.i.path,
     conn: Bind.Conn = Bind.conn.file,

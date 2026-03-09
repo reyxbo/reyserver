@@ -13,8 +13,9 @@ from datetime import datetime as Datetime
 from fastapi import APIRouter, Request
 from fastapi.security import OAuth2PasswordBearer
 from reydb import rorm, DatabaseEngine, DatabaseEngineAsync
-from reykit.rdata import encode_jwt, decode_jwt, is_hash_bcrypt
-from reykit.rre import search_batch
+from reykit.rbase import throw
+from reykit.rdata import encode_jwt, decode_jwt, hash_bcrypt, is_hash_bcrypt
+from reykit.rre import PATTERN_PHONE, search, search_batch
 from reykit.rtime import now
 
 from .rbase import exit_api
@@ -34,7 +35,7 @@ UserData = TypedDict(
     'UserData',
     {
         'create_time': float,
-        'udpate_time': float,
+        'update_time': float,
         'user_id': int,
         'user_name': str,
         'role_names': list[str],
@@ -65,6 +66,8 @@ JSONToken = TypedDict(
     }
 )
 
+STANDARD_USER_ROLE_ID = 2
+
 class DatabaseORMTableUser(rorm.Table):
     """
     Database "user" table ORM model.
@@ -75,12 +78,27 @@ class DatabaseORMTableUser(rorm.Table):
     create_time: rorm.Datetime = rorm.Field(field_default=':time', not_null=True, index_n=True, comment='Record create time.')
     update_time: rorm.Datetime = rorm.Field(field_default=':time', not_null=True, index_n=True, comment='Record update time.')
     user_id: int = rorm.Field(key_auto=True, comment='User ID.')
-    name: str = rorm.Field(rorm.types.VARCHAR(50), not_null=True, index_u=True, comment='User name, use lowercase letters.')
-    password: str = rorm.Field(rorm.types.CHAR(60), not_null=True, comment='User password, encrypted with "bcrypt".')
+    name: str = rorm.Field(rorm.types.VARCHAR(50), not_null=True, index_u=True, comment=f'User name.', len_min=3)
+    password: str = rorm.Field(rorm.types.CHAR(60), not_null=True, comment='User password, encrypted with "bcrypt".', len_min=6)
     email: rorm.Email = rorm.Field(rorm.types.VARCHAR(255), index_u=True, comment='User email.')
-    phone: str = rorm.Field(rorm.types.CHAR(11), index_u=True, comment='User phone.')
+    phone: str = rorm.Field(rorm.types.CHAR(11), index_u=True, comment=f'User phone.', re=PATTERN_PHONE)
     avatar: int = rorm.Field(comment='User avatar file ID.')
     is_valid: bool = rorm.Field(field_default='TRUE', not_null=True, comment='Is the valid.')
+
+    @rorm.wrap_validate_filed('name')
+    @classmethod
+    def check_name(cls, name: str):
+        if search('^[0-9a-z_-]$', name) is None:
+            throw(ValueError, text='containing characters not allowed')
+        if search('[a-z]', name) is None:
+            throw(ValueError, text='must contain lowercase letters')
+        if search('[_-]{2}', name) is not None:
+            throw(ValueError, text='must not be contain consecutive characters "_-"')
+        if (
+            name.startswith(('_', '-'))
+            or name.endswith(('_', '-'))
+        ):
+            throw(ValueError, text='the start and end cannot be the character "_-"')
 
 class DatabaseORMTableRole(rorm.Table):
     """
@@ -230,7 +248,7 @@ def build_db_auth(engine: DatabaseEngine | DatabaseEngineAsync) -> None:
     engine.sync_engine.build.build(tables=tables, views_stats=views_stats, skip=True)
 
 bearer = OAuth2PasswordBearer(
-    tokenUrl='/token',
+    tokenUrl='/auth/token',
     scheme_name='OAuth2Password',
     description='Authentication of OAuth2 password model.',
     auto_error=False
@@ -259,8 +277,6 @@ async def depend_token(
     # Check.
     if not server.is_started_auth:
         return
-    if bearer is None:
-        exit_api(401)
 
     # Parameter.
     key = server.api_auth_key
@@ -294,8 +310,8 @@ router_auth = APIRouter()
 
 async def get_user_data(
     conn: Bind.Conn,
-    account: str,
-    account_type: Literal['user_id', 'name', 'email', 'phone'] = 'name',
+    index: str | int,
+    index_type: Literal['user_id', 'name', 'email', 'phone', 'account'],
     filter_invalid: bool = True
 ) -> UserData | None:
     """
@@ -304,11 +320,13 @@ async def get_user_data(
     Parameters
     ----------
     conn: Asyncronous database connection.
-    account : User account.
-    account_type : User account type.
+    index : User index.
+    index_type : User index type.
+        - "Literal['user_id']: User ID.
         - "Literal['name']": User name.
-        - "Literal['email']": User Email.
+        - "Literal['email']": User email.
         - "Literal['phone']": User phone mumber.
+        - "Literal['account']": User name or email or phone number.
     filter_invalid : Whether filter invalid user.
 
     Returns
@@ -318,15 +336,36 @@ async def get_user_data(
 
     # Parameter.
     if filter_invalid:
-        sql_where_user = (
-            '    WHERE (\n'
-            f'        "{account_type}" = :account\n'
-            '        AND "is_valid" = TRUE\n'
-            '    )\n'
-        )
+        if index_type == 'account':
+            sql_where_user = (
+                '    WHERE (\n'
+                '        (\n'
+                '            "name" = :index\n'
+                '            or "email" = :index\n'
+                '            or "phone" = :index\n'
+                '        )\n'
+                '        AND "is_valid" = TRUE\n'
+                '    )\n'
+            )
+        else:
+            sql_where_user = (
+                '    WHERE (\n'
+                f'        "{index_type}" = :index\n'
+                '        AND "is_valid" = TRUE\n'
+                '    )\n'
+            )
         sql_where_role = sql_where_perm = '    WHERE "is_valid" = TRUE\n'
     else:
-        sql_where_user = '    WHERE "{account_type}" = :account\n'
+        if index_type == 'account':
+            sql_where_user = (
+                '    WHERE (\n'
+                '        "name" = :index\n'
+                '        or "email" = :index\n'
+                '        or "phone" = :index\n'
+                '    )\n'
+            )
+        else:
+            sql_where_user = f'    WHERE "{index_type}" = :index\n'
         sql_where_role = sql_where_perm = ''
 
     # Get.
@@ -374,7 +413,7 @@ async def get_user_data(
     )
     result = await conn.execute(
         sql,
-        account=account
+        index=index
     )
 
     # Extract.
@@ -390,7 +429,7 @@ async def get_user_data(
             row['perm_apis'] = ''
         info: UserData = {
             'create_time': row['create_time'].timestamp(),
-            'udpate_time': row['update_time'].timestamp(),
+            'update_time': row['update_time'].timestamp(),
             'user_id': row['user_id'],
             'user_name': row['user_name'],
             'role_names': row['role_names'].split(';'),
@@ -404,19 +443,50 @@ async def get_user_data(
 
     return info
 
-@router_auth.post('/token')
-async def create_token(
-    username: str = Bind.i.form,
-    password: str = Bind.i.form,
-    conn: Bind.Conn = Bind.conn.auth,
-    server: Bind.Server = Bind.server
-) -> JSONToken:
+def create_token(user_data: UserData, server: Bind.Server) -> str:
     """
     Create token.
 
     Parameters
     ----------
-    username : User name.
+    user_data : User data.
+    server : Server instance.
+
+    Returns
+    -------
+    Token.
+    """
+
+    # Parameter.
+    key = server.api_auth_key
+    sess_seconds = server.api_auth_sess_seconds
+
+    # Create.
+    now_timestamp_s = now('timestamp_s')
+    data: TokenData = {
+        'sub': str(user_data['user_id']),
+        'iat': now_timestamp_s,
+        'nbf': now_timestamp_s,
+        'exp': now_timestamp_s + sess_seconds,
+        'user': user_data
+    }
+    token = encode_jwt(data, key)
+
+    return token
+
+@router_auth.post('/token')
+async def get_token(
+    account: str = Bind.i.form,
+    password: str = Bind.i.form,
+    conn: Bind.Conn = Bind.conn.auth,
+    server: Bind.Server = Bind.server
+) -> JSONToken:
+    """
+    Get token.
+
+    Parameters
+    ----------
+    account : User account. User name or email or phone number.
     password : User password.
 
     Returns
@@ -424,31 +494,62 @@ async def create_token(
     JSON with "token".
     """
 
-    # Parameter.
-    key = server.api_auth_key
-    sess_seconds = server.api_auth_sess_seconds
-
-    # User data.
-    user_data = await get_user_data(conn, username)
-
     # Check.
+    user_data = await get_user_data(conn, account, 'account')
     if user_data is None:
         exit_api(401)
     password_hash = user_data.pop('password')
     if not is_hash_bcrypt(password, password_hash):
         exit_api(401)
 
+    # Token.
+    token = create_token(user_data, server)
+
     # Response.
-    now_timestamp_s = now('timestamp_s')
-    user_id = user_data.pop('user_id')
-    data: TokenData = {
-        'sub': str(user_id),
-        'iat': now_timestamp_s,
-        'nbf': now_timestamp_s,
-        'exp': now_timestamp_s + sess_seconds,
-        'user': user_data
+    response = {
+        'access_token': token,
+        'token_type': 'Bearer'
     }
-    token = encode_jwt(data, key)
+
+    return response
+
+@router_auth.post('/signup')
+async def signup(
+    user: DatabaseORMTableUser,
+    conn: Bind.Conn = Bind.conn.auth,
+    sess: Bind.Sess = Bind.sess.auth,
+    server: Bind.Server = Bind.server
+) -> JSONToken:
+    """
+    Create token.
+
+    Parameters
+    ----------
+    data : User data.
+
+    Returns
+    -------
+    JSON with "token".
+    """
+
+    # Signup.
+    user.password = hash_bcrypt(user.password).decode()
+    await sess.add(user)
+    await sess.flush()
+    user_role = DatabaseORMTableUserRole(
+        user_id=user.user_id,
+        role_id=STANDARD_USER_ROLE_ID
+    )
+    await sess.add(user_role)
+    user_id = user.user_id
+    await sess.commit()
+
+    # Token.
+    user_data: UserData = await get_user_data(conn, user_id, 'user_id')
+    del user_data['password']
+    token = create_token(user_data, server)
+
+    # Response.
     response = {
         'access_token': token,
         'token_type': 'Bearer'
