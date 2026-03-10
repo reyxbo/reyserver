@@ -18,7 +18,7 @@ from reykit.rdata import encode_jwt, decode_jwt, hash_bcrypt, is_hash_bcrypt
 from reykit.rre import PATTERN_PHONE, search, search_batch
 from reykit.rtime import now
 
-from .rbase import exit_api
+from .rbase import ServerBase, exit_api
 from .rbind import Bind
 
 __all__ = (
@@ -31,7 +31,7 @@ __all__ = (
     'router_auth'
 )
 
-UserData = TypedDict(
+User = TypedDict(
     'UserData',
     {
         'create_time': float,
@@ -50,11 +50,12 @@ UserData = TypedDict(
 TokenData = TypedDict(
     'TokenData',
     {
-        'sub': int,
+        'sub': str,
         'iat': int,
         'nbf': int,
         'exp': int,
-        'user': UserData
+        'user_id': int,
+        'perm_apis': list[str]
     }
 )
 Token = str
@@ -155,6 +156,19 @@ class DatabaseORMTableRolePerm(rorm.Table):
     update_time: rorm.Datetime = rorm.Field(field_default=':time', arg_default=now, not_null=True, index_n=True, comment='Record update time.')
     role_id: int = rorm.Field(rorm.types.SMALLINT, key=True, comment='Role ID.')
     perm_id: int = rorm.Field(rorm.types.SMALLINT, key=True, comment='Permission ID.')
+
+class DatabaseORMModelUserOut(rorm.Model):
+    """
+    Database user out ORM model.
+    """
+
+    create_time: rorm.Datetime = rorm.Field(field_default=':time', not_null=True, index_n=True, comment='Record create time.')
+    update_time: rorm.Datetime = rorm.Field(field_default=':time', not_null=True, index_n=True, comment='Record update time.')
+    user_id: int = rorm.Field(key_auto=True, comment='User ID.')
+    name: str = rorm.Field(rorm.types.VARCHAR(50), not_null=True, index_u=True, comment=f'User name.', len_min=3)
+    email: rorm.Email = rorm.Field(rorm.types.VARCHAR(255), index_u=True, comment='User email.')
+    phone: str = rorm.Field(rorm.types.CHAR(11), index_u=True, comment=f'User phone.', re=PATTERN_PHONE)
+    avatar: int = rorm.Field(comment='User avatar file ID.')
 
 def build_db_auth(engine: DatabaseEngine | DatabaseEngineAsync) -> None:
     """
@@ -283,7 +297,7 @@ async def depend_token(
     api_path = f'{request.method} {request.url.path}'
 
     # Cache.
-    token_data: UserData | None = getattr(request.state, 'token_data', None)
+    token_data: TokenData | None = getattr(request.state, 'token_data', None)
 
     # Decode.
     if token_data is None:
@@ -293,10 +307,9 @@ async def depend_token(
         request.state.token_data = token_data
 
     # Authentication.
-    perm_apis = token_data['user']['perm_apis']
     perm_apis = [
-        f'^{pattern}$'
-        for pattern in perm_apis
+        f'^{pattern}'
+        for pattern in token_data['perm_apis']
     ]
     result = search_batch(api_path, *perm_apis)
     if result is None:
@@ -304,7 +317,45 @@ async def depend_token(
 
     return token_data
 
+class User(ServerBase):
+    """
+    User data.
+    """
+
+    def __init__(self, token: TokenData) -> None:
+        """
+        Build instance attributes.
+
+        Parameters
+        ----------
+        token : Token data.
+        """
+
+        # Build.
+        self.user_id = token['user_id']
+
+async def depend_user(token: TokenData = Bind.Depend(depend_token)) -> User:
+    """
+    Dependencie function of user data.
+
+    Parameters
+    ----------
+    token : token data.
+
+    Returns
+    -------
+    User data.
+    """
+
+    # Instance.
+    user = User(token)
+
+    return token_data
+
+Bind.TokenData = TokenData
 Bind.token = Bind.Depend(depend_token)
+Bind.User = User
+Bind.user = Bind.Depend(depend_user)
 
 router_auth = APIRouter()
 
@@ -313,7 +364,7 @@ async def get_user_data(
     index: str | int,
     index_type: Literal['user_id', 'name', 'email', 'phone', 'account'],
     filter_invalid: bool = True
-) -> UserData | None:
+) -> User | None:
     """
     Get user data.
 
@@ -427,7 +478,7 @@ async def get_user_data(
             row['perm_names'] = ''
         if row['perm_apis'] is None:
             row['perm_apis'] = ''
-        info: UserData = {
+        info: User = {
             'create_time': row['create_time'].timestamp(),
             'update_time': row['update_time'].timestamp(),
             'user_id': row['user_id'],
@@ -443,46 +494,48 @@ async def get_user_data(
 
     return info
 
-def create_token(user_data: UserData, server: Bind.Server) -> str:
+def encode_token(
+    data: User,
+    key: str,
+    seconds: int
+) -> Token:
     """
-    Create token.
+    Encode data to token string.
 
     Parameters
     ----------
-    user_data : User data.
-    server : Server instance.
+    data : User data.
+    key : Authentication API JWT encryption key.
+    seconds: Authentication API session valid seconds.
 
     Returns
     -------
     Token.
     """
 
-    # Parameter.
-    key = server.api_auth_key
-    sess_seconds = server.api_auth_sess_seconds
-
     # Create.
     now_timestamp_s = now('timestamp_s')
-    data: TokenData = {
-        'sub': str(user_data['user_id']),
+    json: TokenData = {
+        'sub': str(data['user_id']),
         'iat': now_timestamp_s,
         'nbf': now_timestamp_s,
-        'exp': now_timestamp_s + sess_seconds,
-        'user': user_data
+        'exp': now_timestamp_s + seconds,
+        'user_id': data['user_id'],
+        'perm_apis': data['perm_apis']
     }
-    token = encode_jwt(data, key)
+    token = encode_jwt(json, key)
 
     return token
 
 @router_auth.post('/token')
-async def get_token(
+async def create_token(
     account: str = Bind.i.form,
     password: str = Bind.i.form,
     conn: Bind.Conn = Bind.conn.auth,
     server: Bind.Server = Bind.server
 ) -> JSONToken:
     """
-    Get token.
+    Create token.
 
     Parameters
     ----------
@@ -498,12 +551,15 @@ async def get_token(
     user_data = await get_user_data(conn, account, 'account')
     if user_data is None:
         exit_api(401)
-    password_hash = user_data.pop('password')
-    if not is_hash_bcrypt(password, password_hash):
+    if not is_hash_bcrypt(password, user_data['password']):
         exit_api(401)
 
     # Token.
-    token = create_token(user_data, server)
+    token = encode_token(
+        user_data,
+        server.api_auth_key,
+        server.api_auth_sess_seconds
+    )
 
     # Response.
     response = {
@@ -513,19 +569,19 @@ async def get_token(
 
     return response
 
-@router_auth.post('/signup')
-async def signup(
-    user: DatabaseORMTableUser,
+@router_auth.post('/users')
+async def create_user(
+    model_user: DatabaseORMTableUser,
     conn: Bind.Conn = Bind.conn.auth,
     sess: Bind.Sess = Bind.sess.auth,
     server: Bind.Server = Bind.server
 ) -> JSONToken:
     """
-    Create token.
+    Create user.
 
     Parameters
     ----------
-    data : User data.
+    model_user : User data model.
 
     Returns
     -------
@@ -533,21 +589,24 @@ async def signup(
     """
 
     # Signup.
-    user.password = hash_bcrypt(user.password).decode()
-    await sess.add(user)
+    model_user.password = hash_bcrypt(model_user.password).decode()
+    await sess.add(model_user)
     await sess.flush()
     user_role = DatabaseORMTableUserRole(
-        user_id=user.user_id,
+        user_id=model_user.user_id,
         role_id=STANDARD_USER_ROLE_ID
     )
     await sess.add(user_role)
-    user_id = user.user_id
+    user_id = model_user.user_id
     await sess.commit()
 
     # Token.
-    user_data: UserData = await get_user_data(conn, user_id, 'user_id')
-    del user_data['password']
-    token = create_token(user_data, server)
+    user_data: User = await get_user_data(conn, user_id, 'user_id')
+    token = encode_token(
+        user_data,
+        server.api_auth_key,
+        server.api_auth_sess_seconds
+    )
 
     # Response.
     response = {
@@ -556,3 +615,144 @@ async def signup(
     }
 
     return response
+
+@router_auth.get('/user')
+async def get_user_info(
+    user: Bind.User = Bind.user,
+    sess: Bind.Sess = Bind.sess.auth
+) -> DatabaseORMModelUserOut:
+    """
+    Get user information.
+
+    Returns
+    -------
+    User information.
+    """
+
+    # Get.
+    user = await sess.get(DatabaseORMTableUser, user.user_id)
+    user_out = DatabaseORMModelUserOut.model_validate(user)
+
+    return user_out
+
+@router_auth.patch('/user/name')
+async def update_user_name(
+    name: str = Bind.i.body_k,
+    user: Bind.User = Bind.user,
+    sess: Bind.Sess = Bind.sess.auth
+) -> None:
+    """
+    Update user name.
+
+    Parameters
+    ----------
+    name : User name.
+    """
+
+    # Update.
+    sql_where = f'"user_id" = "{user.user_id}"'
+    await sess.update(DatabaseORMTableUser).values('name'=name).where(sql_where).execute()
+
+@router_auth.patch('/user/password')
+async def update_user_password(
+    password: str = Bind.i.body_k,
+    new_password: str = Bind.i.body_k,
+    user: Bind.User = Bind.user,
+    sess: Bind.Sess = Bind.sess.auth
+) -> None:
+    """
+    Update user name.
+
+    Parameters
+    ----------
+    password : User password.
+    new_password : New user password.
+    """
+
+    # Check.
+    user_data: User = await get_user_data(conn, user.user_id, 'user_id')
+    if not is_hash_bcrypt(password, user_data['password']):
+        exit_api(401)
+
+    # Update.
+    new_password = hash_bcrypt(new_password)
+    sql_where = f'"user_id" = "{token['user_id']}"'
+    await sess.update(DatabaseORMTableUser).values('password'=new_password).where(sql_where).execute()
+
+@router_auth.patch('/user/email')
+async def update_user_email(
+    code: int = Bind.i.body_k,
+    new_email: str = Bind.i.body_k,
+    user: Bind.User = Bind.user,
+    sess: Bind.Sess = Bind.sess.auth
+) -> None:
+    """
+    Update user email.
+
+    Parameters
+    ----------
+    code : Verification code.
+    new_email : New user email.
+    """
+
+    # Check.
+    ...
+
+    # Update.
+    sql_where = f'"user_id" = "{user.user_id}"'
+    await sess.update(DatabaseORMTableUser).values('email'=new_email).where(sql_where).execute()
+
+@router_auth.patch('/user/phone')
+async def update_user_phone(
+    code: int = Bind.i.body_k,
+    new_phone: str = Bind.i.body_k,
+    user: Bind.User = Bind.user,
+    sess: Bind.Sess = Bind.sess.auth
+) -> None:
+    """
+    Update user phone number.
+
+    Parameters
+    ----------
+    code : Verification code.
+    new_phone : New user phone number.
+    """
+
+    # Check.
+    ...
+
+    # Update.
+    sql_where = f'"user_id" = "{user.user_id}"'
+    await sess.update(DatabaseORMTableUser).values('phone'=new_phone).where(sql_where).execute()
+
+@router_auth.patch('/user/avatar')
+async def update_user_avatar(
+    file: Bind.File = Bind.i.forms,
+    user: Bind.User = Bind.user,
+    sess: Bind.Sess = Bind.sess.auth
+) -> DatabaseORMModelUserOut:
+    """
+    Update user phone number.
+
+    Parameters
+    ----------
+    code : Verification code.
+    new_phone : New user phone number.
+
+    Returns
+    -------
+    User information.
+    """
+
+    # Upload.
+    file_id = ...
+
+    # Update.
+    sql_where = f'"user_id" = "{user.user_id}"'
+    await sess.update(DatabaseORMTableUser).values('avatar'=file_id).where(sql_where).execute()
+    await sess.commit()
+
+    # Get.
+    sess.get(DatabaseORMModelUserOut, token['user_id'])
+
+    return file_id

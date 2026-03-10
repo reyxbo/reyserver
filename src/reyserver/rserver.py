@@ -226,6 +226,11 @@ class Server(ServerBase, Singleton):
                 and request.method == 'POST'
             ):
                 response.status_code = 201
+            elif (
+                response.status_code == 200
+                and response.body == b''
+            ):
+                response.status_code = 204
             elif response.status_code == 401:
                 response.headers.setdefault('WWW-Authenticate', 'Bearer')
 

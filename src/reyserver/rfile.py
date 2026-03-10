@@ -197,13 +197,13 @@ async def get_file_info(
     """
 
     # Get.
-    table_info = await sess.get(DatabaseORMTableInfo, file_id)
+    model_info = await sess.get(DatabaseORMTableInfo, file_id)
 
     # Check.
-    if table_info is None:
+    if model_info is None:
         exit_api(404)
 
-    return table_info
+    return model_info
 
 @router_file.post('/')
 async def upload_file(
@@ -240,25 +240,25 @@ async def upload_file(
     if file_path is None:
         file_path = file_store.store(file_bytes)
         file_relpath = file_store.get_relpath(file_path)
-        table_data = DatabaseORMTableData(
+        model_data = DatabaseORMTableData(
             md5=file_md5,
             size=file_size,
             path=file_relpath
         )
-        await sess.add(table_data)
+        await sess.add(model_data)
 
     ## Information.
-    table_info = DatabaseORMTableInfo(
+    model_info = DatabaseORMTableInfo(
         md5=file_md5,
         name=name,
         note=note
     )
-    await sess.add(table_info)
+    await sess.add(model_info)
 
     # Get ID.
     await sess.flush()
 
-    return table_info
+    return model_info
 
 @router_file.get('/{file_id}/download')
 async def download_file(

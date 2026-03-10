@@ -101,10 +101,23 @@ def wrap_cache(func_or_expire: CallableT | int | None = None) -> CallableT | Cal
     """
 
     # Decorate.
+
+    ## No parameter.
     if callable(func_or_expire):
-        decorator = fastapi_cache_cache()
-        func = decorator(func_or_expire)
-        return func
+        decorator_cache = fastapi_cache_cache()
+        wrapped_func = decorator_cache(func_or_expire)
+        wrapped_func.__wrapped__ = func_or_expire
+        if 'return' in func_or_expire.__annotations__:
+            wrapped_func.__annotations__['return'] = func_or_expire.__annotations__['return']
+        return wrapped_func
+
+    ## With parameter.
     else:
-        decorator = fastapi_cache_cache(func_or_expire)
-        return decorator
+        def wrap(func):
+            decorator_cache = fastapi_cache_cache(func_or_expire)
+            wrapped_func = decorator_cache(func)
+            wrapped_func.__wrapped__ = func
+            if 'return' in func.__annotations__:
+                wrapped_func.__annotations__['return'] = func.__annotations__['return']
+            return wrapped_func
+        return wrap

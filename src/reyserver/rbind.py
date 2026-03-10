@@ -24,6 +24,7 @@ from reydb.rconn import DatabaseConnectionAsync
 from reydb.rorm import DatabaseORMSessionAsync
 from reykit.rbase import StaticMeta, Singleton, throw
 
+from . import rauth
 from . import rserver
 from .rbase import ServerBase, depend_pass
 
@@ -126,6 +127,17 @@ class ServerBindInstance(ServerBase, Singleton):
         return query
 
     @property
+    def query_n(self) -> Query:
+        """
+        Query instance, default `None`.
+        """
+
+        # Build.
+        query = Query(None)
+
+        return query
+
+    @property
     def header(self) -> Header:
         """
         Header instance.
@@ -133,6 +145,17 @@ class ServerBindInstance(ServerBase, Singleton):
 
         # Build.
         header = Header()
+
+        return header
+
+    @property
+    def header_n(self) -> Header:
+        """
+        Header instance, default `None`.
+        """
+
+        # Build.
+        header = Header(None)
 
         return header
 
@@ -148,6 +171,17 @@ class ServerBindInstance(ServerBase, Singleton):
         return cookie
 
     @property
+    def cookie_n(self) -> Cookie:
+        """
+        Cookie instance, default `None`.
+        """
+
+        # Build.
+        cookie = Cookie(None)
+
+        return cookie
+
+    @property
     def body(self) -> Body:
         """
         Body instance.
@@ -155,6 +189,39 @@ class ServerBindInstance(ServerBase, Singleton):
 
         # Build.
         body = Body()
+
+        return body
+
+    @property
+    def body_n(self) -> Body:
+        """
+        Body instance, default `None`.
+        """
+
+        # Build.
+        body = Body(None)
+
+        return body
+
+    @property
+    def body_k(self) -> Body:
+        """
+        Body instance of parameter `embed` is `True`.
+        """
+
+        # Build.
+        body = Body(embed=True)
+
+        return body
+
+    @property
+    def body_kn(self) -> Body:
+        """
+        Body instance of parameter `embed` is `True`, default `None`.
+        """
+
+        # Build.
+        body = Body(None, embed=True)
 
         return body
 
@@ -170,61 +237,6 @@ class ServerBindInstance(ServerBase, Singleton):
         return form
 
     @property
-    def forms(self) -> Forms:
-        """
-        Forms instance.
-        """
-
-        # Build.
-        forms = Forms()
-
-        return forms
-
-    @property
-    def query_n(self) -> Query:
-        """
-        Query instance, default `None`.
-        """
-
-        # Build.
-        query = Query(None)
-
-        return query
-
-    @property
-    def header_n(self) -> Header:
-        """
-        Header instance, default `None`.
-        """
-
-        # Build.
-        header = Header(None)
-
-        return header
-
-    @property
-    def cookie_n(self) -> Cookie:
-        """
-        Cookie instance, default `None`.
-        """
-
-        # Build.
-        cookie = Cookie(None)
-
-        return cookie
-
-    @property
-    def body_n(self) -> Body:
-        """
-        Body instance, default `None`.
-        """
-
-        # Build.
-        body = Body(None)
-
-        return body
-
-    @property
     def form_n(self) -> Form:
         """
         Form instance, default `None`.
@@ -234,6 +246,17 @@ class ServerBindInstance(ServerBase, Singleton):
         form = Form(None)
 
         return form
+
+    @property
+    def forms(self) -> Forms:
+        """
+        Forms instance.
+        """
+
+        # Build.
+        forms = Forms()
+
+        return forms
 
     @property
     def forms_n(self) -> Forms:
@@ -303,7 +326,11 @@ class ServerBind(ServerBase, metaclass=StaticMeta):
     'Server API bind parameter asynchronous database connection.'
     sess = ServerBindInstanceDatabaseSession()
     'Server API bind parameter asynchronous database session.'
+    TokenData: 'type[rauth.TokenData]'
     token: Depend = depend_pass
     'Server authentication token dependency type.'
+    User: 'type[rauth.User]'
+    user: Depend = depend_pass
+    'Current session user data dependency type.'
 
 Bind = ServerBind
