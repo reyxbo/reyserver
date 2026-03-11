@@ -33,6 +33,7 @@ class ServerClient(ServerBase):
         username: str,
         password: str,
         url: str = 'http://127.0.0.1:8000',
+        prefix: str | None = None
     ) -> None:
         """
         Build instance attributes.
@@ -42,12 +43,14 @@ class ServerClient(ServerBase):
         username: User name.
         password: User password.
         url : Server url.
+        prefix : The path prefix for all API routes, starting with `/`.
         """
 
         # Build.
         self.username = username
         self.password = password
         self.url = url
+        self.prefix = prefix
         self.token = self.get_token(username, password)
         self.request = copy_type_hints(self._request, request)
 
@@ -70,7 +73,7 @@ class ServerClient(ServerBase):
         """
 
         # Parameter.
-        url = join_url(self.url, 'auth', 'token')
+        url = join_url(self.url, self.prefix, 'auth', 'token')
         data = {
             'username': username,
             'password': password
@@ -143,7 +146,7 @@ class ServerClient(ServerBase):
         """
 
         # Parameter.
-        url = join_url(self.url, 'files')
+        url = join_url(self.url, self.prefix, 'files')
         match source:
 
             ## File path.
@@ -211,7 +214,7 @@ class ServerClient(ServerBase):
         """
 
         # Parameter.
-        url = join_url(self.url, 'files', file_id, 'download')
+        url = join_url(self.url, self.prefix, 'files', file_id, 'download')
 
         # Request.
         response = self.request(url, check=True)
@@ -248,7 +251,7 @@ class ServerClient(ServerBase):
         """
 
         # Parameter.
-        url = join_url(self.url, 'files', file_id)
+        url = join_url(self.url, self.prefix, 'files', file_id)
 
         # Request.
         response = self.request(url, check=True)

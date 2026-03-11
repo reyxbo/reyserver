@@ -24,9 +24,11 @@ from reydb.rconn import DatabaseConnectionAsync
 from reydb.rorm import DatabaseORMSessionAsync
 from reykit.rbase import StaticMeta, Singleton, throw
 
-from . import rauth
-from . import rserver
 from .rbase import ServerBase, depend_pass
+
+if TYPE_CHECKING:
+    from .rauth import TokenData, User
+    from .rserver import Server
 
 __all__ = (
     'ServerBindInstanceDatabaseSuper',
@@ -58,7 +60,7 @@ class ServerBindInstanceDatabaseSuper(ServerBase):
         Dependencie instance.
         """
 
-        async def depend_func(server: Bind.Server = Bind.server):
+        async def depend_func(server: 'Server' = Bind.server):
             """
             Dependencie function of asynchronous database.
             """
@@ -269,7 +271,7 @@ class ServerBindInstance(ServerBase, Singleton):
 
         return forms
 
-async def depend_server(request: Request) -> 'rserver.Server':
+async def depend_server(request: Request) -> 'Server':
     """
     Dependencie function of now Server instance.
 
@@ -284,7 +286,7 @@ async def depend_server(request: Request) -> 'rserver.Server':
 
     # Get.
     app: FastAPI = request.app
-    server: rserver.Server = app.extra['server']
+    server: Server = app.extra['server']
 
     return server
 
@@ -315,9 +317,6 @@ class ServerBind(ServerBase, metaclass=StaticMeta):
     'Dependency type.'
     Conn = DatabaseConnectionAsync
     Sess = DatabaseORMSessionAsync
-    if TYPE_CHECKING:
-        Server = rserver.Server
-        'Server type.'
     server: Depend = Depend(depend_server)
     'Server instance dependency type.'
     i = ServerBindInstance()
@@ -326,11 +325,13 @@ class ServerBind(ServerBase, metaclass=StaticMeta):
     'Server API bind parameter asynchronous database connection.'
     sess = ServerBindInstanceDatabaseSession()
     'Server API bind parameter asynchronous database session.'
-    TokenData: 'type[rauth.TokenData]'
     token: Depend = depend_pass
     'Server authentication token dependency type.'
-    User: 'type[rauth.User]'
     user: Depend = depend_pass
     'Current session user data dependency type.'
+    if TYPE_CHECKING:
+        Server = Server
+        TokenData = TokenData
+        User = User
 
 Bind = ServerBind

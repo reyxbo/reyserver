@@ -62,7 +62,8 @@ class Server(ServerBase, Singleton):
         redis_expire: int | None = None,
         depend: CoroutineFunctionSimple | Sequence[CoroutineFunctionSimple] | None = None,
         before: CoroutineFunctionSimple | Sequence[CoroutineFunctionSimple] | None = None,
-        after: CoroutineFunctionSimple | Sequence[CoroutineFunctionSimple] | None = None
+        after: CoroutineFunctionSimple | Sequence[CoroutineFunctionSimple] | None = None,
+        prefix: str | None = None
     ) -> None:
         """
         Build instance attributes.
@@ -76,6 +77,7 @@ class Server(ServerBase, Singleton):
         depend : Global api dependencies.
         before : Execute before server start.
         after : Execute after server end.
+        prefix : The path prefix for API routes, except public resources, starting with `/`.
         """
 
         # Parameter.
@@ -100,8 +102,9 @@ class Server(ServerBase, Singleton):
         self.app = FastAPI(
             dependencies=depend,
             lifespan=lifespan,
-            server=self
+            server=self,
         )
+        self._prefix = prefix or ''
 
         ## Shortcut.
         self.extra = self.app.extra
@@ -171,6 +174,16 @@ class Server(ServerBase, Singleton):
             for task in before:
                 await task()
 
+            ## Cache.
+            from fastapi.routing import APIRoute
+            for route in app.routes:
+                if isinstance(route, APIRoute):
+                    if hasattr(route.endpoint, '__cache__'):
+                        if route.tags is None:
+                            route.tags = ['cache']
+                        else:
+                            route.tags.append('cache')
+
             ## Databse.
             if db_warm:
                 await self.db.warm_all()
@@ -228,7 +241,8 @@ class Server(ServerBase, Singleton):
                 response.status_code = 201
             elif (
                 response.status_code == 200
-                and response.body == b''
+                and request.method in ('PUT', 'PATCH', 'DELETE')
+                and not getattr(response, 'body', False)
             ):
                 response.status_code = 204
             elif response.status_code == 401:
@@ -282,7 +296,7 @@ class Server(ServerBase, Singleton):
         Parameters
         ----------
         app : Application or function path.
-            - `None`: Cannot use parameter `workers`.
+            - `None`: Cannot use parameter `workers` and `debug`.
             - `Application`: format is `module[.sub....]:var[.attr....]` (e.g. `module.sub:server.app`).
             - `Function`: format is `module[.sub....]:func` (e.g. `module.sub:main`).
         host : Server host.
@@ -402,7 +416,7 @@ class Server(ServerBase, Singleton):
 
         # Add.
         self.api_redirect_server_url = server_url
-        self.add_router(router_redirect, tags=['redirect'])
+        self.add_router(router_redirect, prefix=self._prefix, tags=['redirect'])
 
     def add_api_public(self, public_dir: str) -> None:
         """
@@ -421,7 +435,7 @@ class Server(ServerBase, Singleton):
         self.api_public_dir = public_dir
         subapp = StaticFiles(directory=public_dir)
         self.mount('/public', subapp)
-        self.add_router(router_public, tags=['public'])
+        self.add_router(router_public, prefix=self._prefix, tags=['public'])
 
     def add_api_test(self) -> None:
         """
@@ -431,7 +445,7 @@ class Server(ServerBase, Singleton):
         from .rtest import router_test
 
         # Add.
-        self.add_router(router_test, prefix='/test', tags=['test'])
+        self.add_router(router_test, prefix=f'{self._prefix}/test', tags=['test'])
 
     def add_api_auth(self, key: str | None = None, sess_seconds: int = 28800) -> None:
         """
@@ -463,7 +477,7 @@ class Server(ServerBase, Singleton):
         # Add.
         self.api_auth_key = key
         self.api_auth_sess_seconds = sess_seconds
-        self.add_router(router_auth, prefix='/auth', tags=['auth'])
+        self.add_router(router_auth, prefix=f'{self._prefix}/auth', tags=['auth'])
         self.is_started_auth = True
 
     def add_api_file(self, file_dir: str = 'file') -> None:
@@ -489,6 +503,6 @@ class Server(ServerBase, Singleton):
 
         # Add.
         self.api_file_store = FileStore(file_dir)
-        self.add_router(router_file, prefix='/files', tags=['file'], dependencies=(Bind.token,))
+        self.add_router(router_file, prefix=f'{self._prefix}/files', tags=['file'], dependencies=(Bind.token,))
 
 Bind.Server = Server

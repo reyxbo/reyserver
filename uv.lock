@@ -2010,7 +2010,7 @@ wheels = [
 
 [[package]]
 name = "reykit"
-version = "1.2.40"
+version = "1.2.42"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -2034,12 +2034,12 @@ dependencies = [
     { name = "varname" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/28/e3/4dd81486e3c994090d0b2b816522ba20051323647358032a2c8516467d82/reykit-1.2.40-py3-none-any.whl", hash = "sha256:24ea71db95f5cfb0819cf31b3e2076b43a67b40d4554e3d99b59381d4c1cf996", size = 73124, upload-time = "2026-03-09T12:01:33.24Z" },
+    { url = "https://files.pythonhosted.org/packages/9b/25/a23d46986a2d08e34e73c434ab675d60391e20ab6439385e88290a1bb5a4/reykit-1.2.42-py3-none-any.whl", hash = "sha256:c6254ba0ab2f33309523bf33d75d2299d6e40499d8b87e189b529364dcd241e3", size = 73221, upload-time = "2026-03-11T09:32:14.625Z" },
 ]
 
 [[package]]
 name = "reyserver"
-version = "1.1.99"
+version = "1.1.119"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi", extra = ["standard"] },

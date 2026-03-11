@@ -10,8 +10,7 @@
 
 from typing import Any
 from collections.abc import Callable
-from inspect import  iscoroutinefunction
-from fastapi import Request, Response
+from functools import wraps
 from fastapi_cache import FastAPICache
 from fastapi_cache.coder import PickleCoder
 from fastapi_cache.backends.redis import RedisBackend
@@ -38,9 +37,6 @@ def init_cache(redis: Redis, redis_expire: int | None = None) -> None:
 
     def key_builder(
         func: Callable,
-        namespace: str,
-        request: Request | None,
-        response: Response | None,
         args: tuple,
         kwargs: dict[str, Any],
     ) -> str:
@@ -100,24 +96,36 @@ def wrap_cache(func_or_expire: CallableT | int | None = None) -> CallableT | Cal
     >>> def foo(): ...
     """
 
-    # Decorate.
+    # Decorator.
+    def decorator(func, expire):
+
+        # Annotation.
+        note_title = 'Notes\n-----'
+        cache_note = '\nThe response will based on Redis caching.\n'
+        if not func.__doc__:
+            func.__doc__ = note_title + cache_note
+        if note_title in func.__doc__:
+            func.__doc__ = func.__doc__.replace(note_title, note_title + cache_note)
+        else:
+            func.__doc__ += '\n' + note_title + cache_note
+
+        # Tag.
+        func.__cache__ = True
+
+        # Decorate.
+        cache_decorator = fastapi_cache_cache(expire=expire)
+        cache_func = cache_decorator(func)
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            result = cache_func(*args, **kwargs)
+            return result
+
+        return wrapper
 
     ## No parameter.
     if callable(func_or_expire):
-        decorator_cache = fastapi_cache_cache()
-        wrapped_func = decorator_cache(func_or_expire)
-        wrapped_func.__wrapped__ = func_or_expire
-        if 'return' in func_or_expire.__annotations__:
-            wrapped_func.__annotations__['return'] = func_or_expire.__annotations__['return']
-        return wrapped_func
+        return decorator(func_or_expire, None)
 
     ## With parameter.
     else:
-        def wrap(func):
-            decorator_cache = fastapi_cache_cache(func_or_expire)
-            wrapped_func = decorator_cache(func)
-            wrapped_func.__wrapped__ = func
-            if 'return' in func.__annotations__:
-                wrapped_func.__annotations__['return'] = func.__annotations__['return']
-            return wrapped_func
-        return wrap
+        return lambda func: decorator(func, func_or_expire)

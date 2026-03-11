@@ -89,17 +89,14 @@ class DatabaseORMTableUser(rorm.Table):
     @rorm.wrap_validate_filed('name')
     @classmethod
     def check_name(cls, name: str):
-        if search('^[0-9a-z_-]$', name) is None:
+        if search('^[0-9a-z-_]+$', name) is None:
             throw(ValueError, text='containing characters not allowed')
         if search('[a-z]', name) is None:
             throw(ValueError, text='must contain lowercase letters')
-        if search('[_-]{2}', name) is not None:
-            throw(ValueError, text='must not be contain consecutive characters "_-"')
-        if (
-            name.startswith(('_', '-'))
-            or name.endswith(('_', '-'))
-        ):
-            throw(ValueError, text='the start and end cannot be the character "_-"')
+        if search('^[-_]|[-_]$', name) is not None:
+            throw(ValueError, text='the start and end cannot be the character "-_"')
+        if search('[-_]{2}', name) is not None:
+            throw(ValueError, text='must not be contain consecutive characters "-_"')
 
 class DatabaseORMTableRole(rorm.Table):
     """
@@ -682,7 +679,7 @@ async def update_user_password(
 
 @router_auth.patch('/user/email')
 async def update_user_email(
-    code: int = Bind.i.body_k,
+    captcha: int = Bind.i.body_k,
     new_email: str = Bind.i.body_k,
     user: Bind.User = Bind.user,
     sess: Bind.Sess = Bind.sess.auth
@@ -692,7 +689,7 @@ async def update_user_email(
 
     Parameters
     ----------
-    code : Verification code.
+    captcha : Captcha.
     new_email : New user email.
     """
 
@@ -705,7 +702,7 @@ async def update_user_email(
 
 @router_auth.patch('/user/phone')
 async def update_user_phone(
-    code: int = Bind.i.body_k,
+    captcha: int = Bind.i.body_k,
     new_phone: str = Bind.i.body_k,
     user: Bind.User = Bind.user,
     sess: Bind.Sess = Bind.sess.auth
@@ -715,7 +712,7 @@ async def update_user_phone(
 
     Parameters
     ----------
-    code : Verification code.
+    captcha : Captcha.
     new_phone : New user phone number.
     """
 
