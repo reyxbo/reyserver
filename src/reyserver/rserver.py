@@ -180,9 +180,9 @@ class Server(ServerBase, Singleton):
                 if isinstance(route, APIRoute):
                     if hasattr(route.endpoint, '__cache__'):
                         if route.tags is None:
-                            route.tags = ['cache']
+                            route.tags = ['cached']
                         else:
-                            route.tags.append('cache')
+                            route.tags.append('cached')
 
             ## Databse.
             if db_warm:

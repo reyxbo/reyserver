@@ -208,8 +208,8 @@ async def get_file_info(
 @router_file.post('/')
 async def upload_file(
     file: Bind.File = Bind.i.forms,
-    name: str = Bind.i.forms_n,
-    note: str = Bind.i.forms_n,
+    name: str | None = Bind.i.forms_n,
+    note: str | None = Bind.i.forms_n,
     sess: Bind.Sess = Bind.sess.file,
     server: Bind.Server = Bind.server
 ) -> DatabaseORMTableInfo:

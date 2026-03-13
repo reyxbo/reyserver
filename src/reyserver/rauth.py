@@ -66,6 +66,7 @@ JSONToken = TypedDict(
         'token_type': Literal['Bearer']
     }
 )
+UserExists = TypedDict('UserExists', {'is_exists': bool})
 
 STANDARD_USER_ROLE_ID = 2
 
@@ -525,14 +526,14 @@ def encode_token(
     return token
 
 @router_auth.post('/token')
-async def create_token(
+async def get_token(
     account: str = Bind.i.form,
     password: str = Bind.i.form,
     conn: Bind.Conn = Bind.conn.auth,
     server: Bind.Server = Bind.server
 ) -> JSONToken:
     """
-    Create token.
+    Get token.
 
     Parameters
     ----------
@@ -612,6 +613,52 @@ async def create_user(
     }
 
     return response
+
+@router_auth.get('/users/exists')
+async def check_user_exists(
+    name: str | None = Bind.i.query_n,
+    email: str | None = Bind.i.query_n,
+    phone: str | None = Bind.i.query_n,
+    conn: Bind.Conn = Bind.conn.auth
+) -> UserExists:
+    """
+    Check exists of user.
+
+    Parameters
+    ----------
+    name : Check user name availability.
+    email : Check email availability.
+    phone : Check phone number availability.
+
+    Returns
+    -------
+    User exists result.
+    """
+
+    # Parameter.
+    sql_where_parts = []
+    kwdata = {}
+    if name is not None:
+        sql_where_parts.append('"name" = :name')
+        kwdata['name'] = name
+    if email is not None:
+        sql_where_parts.append('"email" = :email')
+        kwdata['email'] = email
+    if phone is not None:
+        sql_where_parts.append('"phone" = :phone')
+        kwdata['phone'] = phone
+    if sql_where_parts == []:
+        exit_api(text='At least one of parameter "name", "email", or "phone" must be provided.')
+
+    # Select.
+    sql_where = ' OR '.join(sql_where_parts)
+    is_exists = await conn.execute.exist('user', sql_where, **kwdata)
+
+    # Response.
+    response = {'is_exists': is_exists}
+
+    return response
+
 
 @router_auth.get('/user')
 async def get_user_info(
