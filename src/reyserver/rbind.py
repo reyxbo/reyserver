@@ -9,6 +9,7 @@
 """
 
 from typing import overload, TYPE_CHECKING
+from pydantic import EmailStr
 from fastapi import FastAPI, Request, UploadFile
 from fastapi.params import (
     Depends,
@@ -315,6 +316,7 @@ class ServerBind(ServerBase, metaclass=StaticMeta):
     'Type hints file type.'
     Depend = Depends
     'Dependency type.'
+    Email= EmailStr
     Conn = DatabaseConnectionAsync
     Sess = DatabaseORMSessionAsync
     server: Depend = Depend(depend_server)
@@ -333,5 +335,7 @@ class ServerBind(ServerBase, metaclass=StaticMeta):
         Server = Server
         TokenData = TokenData
         User = User
+    else:
+        Server = TokenData = User = None
 
 Bind = ServerBind

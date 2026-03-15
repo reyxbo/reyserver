@@ -34,8 +34,8 @@ class DatabaseORMTableInfo(rorm.Table):
     create_time: rorm.Datetime = rorm.Field(field_default=':time', not_null=True, index_n=True, comment='Record create time.')
     file_id: int = rorm.Field(key_auto=True, comment='File ID.')
     md5: str = rorm.Field(rorm.types.CHAR(32), not_null=True, index_n=True, comment='File MD5.')
-    name: str = rorm.Field(rorm.types.VARCHAR(260), index_n=True, comment='File name.')
-    note: str = rorm.Field(rorm.types.VARCHAR(500), comment='File note.')
+    name: str | None = rorm.Field(rorm.types.VARCHAR(260), index_n=True, comment='File name.')
+    note: str | None = rorm.Field(rorm.types.VARCHAR(500), comment='File note.')
 
 class DatabaseORMTableData(rorm.Table):
     """
@@ -174,7 +174,7 @@ def build_db_file(engine: DatabaseEngine | DatabaseEngineAsync) -> None:
     ]
 
     # Build.
-    engine.sync_engine.build.build(tables=tables, views=views, views_stats=views_stats, skip=True)
+    engine.sync_engine.build(tables=tables, views=views, views_stats=views_stats, skip=True)
 
 router_file = APIRouter()
 

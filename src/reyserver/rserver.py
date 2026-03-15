@@ -21,11 +21,13 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi_cache import FastAPICache
 from redis.asyncio import Redis
+from reyclient.rali import ClientAliVerifySms
 from reydb import DatabaseAsync
 from reykit.rbase import CoroutineFunctionSimple, Singleton, throw
 from reykit.ros import FileStore
 from reykit.rrand import randchar
 
+from . import rauth
 from .rbase import ServerBase
 from .rbind import Bind
 from .rcache import init_cache
@@ -51,6 +53,12 @@ class Server(ServerBase, Singleton):
     'Authentication API JWT encryption key.'
     api_auth_sess_seconds: int
     'Authentication API session valid seconds.'
+    api_auth_init_role_id: int
+    'Authentication API create user initial role ID.'
+    api_auth_client_email: 'rauth.ServerVerifyEmail'
+    'Authentication API client verify email instance.'
+    api_auth_client_phone: 'rauth.ServerVerifyPhone'
+    'Authentication API cleint verify phone instance.'
     api_file_store: FileStore
     'File API store instance.'
 
@@ -447,13 +455,23 @@ class Server(ServerBase, Singleton):
         # Add.
         self.add_router(router_test, prefix=f'{self._prefix}/test', tags=['test'])
 
-    def add_api_auth(self, key: str | None = None, sess_seconds: int = 28800) -> None:
+    def add_api_auth(
+        self,
+        client_email: 'rauth.ServerVerifyEmail',
+        client_phone: 'rauth.ServerVerifyPhone',
+        init_role_id: int,
+        key: str | None = None,
+        sess_seconds: int = 28800,
+    ) -> None:
         """
         Add authentication API.
         Note: must include database engine of `auth` name.
 
         Parameters
         ----------
+        client_email : Client verify email instance.
+        client_phone : Client verify phone instance.
+        init_role_id : Create user initial role ID.
         key : JWT encryption key.
             - `None`: Random 32 length string.
         sess_seconds : Session valid seconds.
@@ -475,6 +493,9 @@ class Server(ServerBase, Singleton):
         build_db_auth(engine)
 
         # Add.
+        self.api_auth_client_email = client_email
+        self.api_auth_client_phone = client_phone
+        self.api_auth_init_role_id = init_role_id
         self.api_auth_key = key
         self.api_auth_sess_seconds = sess_seconds
         self.add_router(router_auth, prefix=f'{self._prefix}/auth', tags=['auth'])
