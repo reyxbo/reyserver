@@ -443,7 +443,7 @@ class Server(ServerBase, Singleton):
         self.api_public_dir = public_dir
         subapp = StaticFiles(directory=public_dir)
         self.mount('/public', subapp)
-        self.add_router(router_public, prefix=self._prefix, tags=['public'])
+        self.add_router(router_public, tags=['public'])
 
     def add_api_test(self) -> None:
         """

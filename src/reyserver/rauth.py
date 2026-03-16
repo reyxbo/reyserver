@@ -1324,116 +1324,6 @@ async def check_user_exists(
 
     return is_exists
 
-@router_auth.post('/email-codes')
-async def send_email_code(
-    scene: VerificationScenes = Bind.Body(max_length=20),
-    email: Bind.Email = Bind.i.body,
-    server: Bind.Server = Bind.server
-) -> None:
-    """
-    Send email verification code.
-
-    Parameters
-    ----------
-    scene : Usage scene.
-    email : Email address.
-    """
-
-    # Parameter.
-    client_email = server.api_auth_client_email
-
-    # Check.
-    is_exists = await check_user_exists(email=email)
-    if not is_exists:
-        exit_api(404, text='user email address not exists')
-
-    # Send.
-    await client_email.async_send(scene, email)
-
-@router_auth.post('/phone-codes')
-async def send_phone_code(
-    scene: VerificationScenes = Bind.Body(max_length=20),
-    phone: str = Bind.i.body,
-    server: Bind.Server = Bind.server
-) -> None:
-    """
-    Send phone verification code.
-
-    Parameters
-    ----------
-    scene : Usage scene.
-    phone : Phone number.
-    """
-
-    # Parameter.
-    client_sms = server.api_auth_client_phone
-
-    # Check.
-    is_exists = await check_user_exists(phone=phone)
-    if not is_exists:
-        exit_api(404, text='user phone number not exists')
-
-    # Send.
-    await client_sms.async_send(scene, phone)
-
-@router_auth.post('/email_codes/verify')
-async def verify_email_code(
-    scene: VerificationScenes = Bind.Body(max_length=20),
-    email: Bind.Email = Bind.i.body,
-    code: str = Bind.Body(min_length=4, max_length=8),
-    server: Bind.Server = Bind.server
-) -> bool:
-    """
-    Verify email verification code.
-
-    Parameters
-    ----------
-    scene : Usage scene.
-    email : Email address.
-    code : Verification code.
-
-    Returns
-    -------
-    Result.
-    """
-
-    # Parmeter.
-    client_email = server.api_auth_client_email
-
-    # Verify.
-    result = await client_email.async_verify(scene, email, code)
-
-    return result
-
-@router_auth.post('/phone_codes/verify')
-async def verify_phone_code(
-    scene: VerificationScenes = Bind.Body(max_length=20),
-    phone: str = Bind.i.body,
-    code: str = Bind.Body(min_length=4, max_length=8),
-    server: Bind.Server = Bind.server
-) -> bool:
-    """
-    Verify phone verification code.
-
-    Parameters
-    ----------
-    scene : Usage scene.
-    phone : Phone number.
-    code : Verification code.
-
-    Returns
-    -------
-    Result.
-    """
-
-    # Parmeter.
-    client_phone = server.api_auth_client_phone
-
-    # Verify.
-    result = await client_phone.async_verify(scene, phone, code)
-
-    return result
-
 @router_auth.get('/user')
 async def get_user_info(
     user: Bind.User = Bind.user,
@@ -1580,3 +1470,113 @@ async def update_user_avatar(
     await sess.commit()
 
     return file_id
+
+@router_auth.post('/email-codes')
+async def send_email_code(
+    scene: VerificationScenes = Bind.Body(max_length=20),
+    email: Bind.Email = Bind.i.body,
+    server: Bind.Server = Bind.server
+) -> None:
+    """
+    Send email verification code.
+
+    Parameters
+    ----------
+    scene : Usage scene.
+    email : Email address.
+    """
+
+    # Parameter.
+    client_email = server.api_auth_client_email
+
+    # Check.
+    is_exists = await check_user_exists(email=email)
+    if not is_exists:
+        exit_api(404, text='user email address not exists')
+
+    # Send.
+    await client_email.async_send(scene, email)
+
+@router_auth.post('/phone-codes')
+async def send_phone_code(
+    scene: VerificationScenes = Bind.Body(max_length=20),
+    phone: str = Bind.i.body,
+    server: Bind.Server = Bind.server
+) -> None:
+    """
+    Send phone verification code.
+
+    Parameters
+    ----------
+    scene : Usage scene.
+    phone : Phone number.
+    """
+
+    # Parameter.
+    client_sms = server.api_auth_client_phone
+
+    # Check.
+    is_exists = await check_user_exists(phone=phone)
+    if not is_exists:
+        exit_api(404, text='user phone number not exists')
+
+    # Send.
+    await client_sms.async_send(scene, phone)
+
+@router_auth.post('/email_codes/verify')
+async def verify_email_code(
+    scene: VerificationScenes = Bind.Body(max_length=20),
+    email: Bind.Email = Bind.i.body,
+    code: str = Bind.Body(min_length=4, max_length=8),
+    server: Bind.Server = Bind.server
+) -> bool:
+    """
+    Verify email verification code.
+
+    Parameters
+    ----------
+    scene : Usage scene.
+    email : Email address.
+    code : Verification code.
+
+    Returns
+    -------
+    Result.
+    """
+
+    # Parmeter.
+    client_email = server.api_auth_client_email
+
+    # Verify.
+    result = await client_email.async_verify(scene, email, code)
+
+    return result
+
+@router_auth.post('/phone_codes/verify')
+async def verify_phone_code(
+    scene: VerificationScenes = Bind.Body(max_length=20),
+    phone: str = Bind.i.body,
+    code: str = Bind.Body(min_length=4, max_length=8),
+    server: Bind.Server = Bind.server
+) -> bool:
+    """
+    Verify phone verification code.
+
+    Parameters
+    ----------
+    scene : Usage scene.
+    phone : Phone number.
+    code : Verification code.
+
+    Returns
+    -------
+    Result.
+    """
+
+    # Parmeter.
+    client_phone = server.api_auth_client_phone
+
+    # Verify.
+    result = await client_phone.async_verify(scene, phone, code)
+
+    return result
