@@ -413,6 +413,8 @@ async def depend_file(
     File information and data.
     """
 
+    from .rfile import DatabaseORMTableInfo, DatabaseORMTableData
+
     # Parameter.
     file_store = server.api_file_store
     file_bytes = await file.read()
@@ -482,13 +484,13 @@ class ServerBind(ServerBase, metaclass=StaticMeta):
     'Server API bind parameter asynchronous database connection.'
     sess = ServerBindInstanceDatabaseSession()
     'Server API bind parameter asynchronous database session.'
-    server: Depend = Depends(depend_server)
+    server = Depend(depend_server)
     'Server global instance dependency type.'
-    token: Depend = Depends(depend_token)
+    token = Depend(depend_token)
     'Server authentication token dependency type.'
-    user: Depend = Depends(depend_user)
+    user = Depend(depend_user)
     'Current session user data dependency type.'
-    file: Depend = Depends(depend_file)
+    file = Depend(depend_file)
     'Upload file data dependency type.'
     User = User
     if TYPE_CHECKING:

@@ -75,7 +75,7 @@ JSONToken = TypedDict(
     }
 )
 'JSON dictionary with Token string.'
-type VerificationScenes = Literal['token', 'signup', 'reset']
+type VerificationScenes = Literal['login', 'signup', 'reset']
 'Verification scene range.'
 
 class DatabaseORMTableUser(rorm.Table):
@@ -357,7 +357,7 @@ class ServerVerifyEmail(ServerBase):
             scene=scene
         )
         if is_exists:
-            throw(AssertionError, text='interval time not elapsed')
+            exit_api(429, text='interval time not elapsed')
 
         # Send.
         code = randchar(self.code_len, 'd')
@@ -430,8 +430,8 @@ class ServerVerifyEmail(ServerBase):
             verify_id, correct_code, verify_count = row
             if correct_code == code:
                 if use:
-                    data = {'id': verify_id, 'use_time': ':NOW():', 'used': True}
-                    conn.execute.update('verify_email', data)
+                    data = {'id': verify_id, 'verify_count': verify_count + 1, 'used': True}
+                    conn.execute.update('verify_email', data, use_time=':NOW()')
                 return True
 
             # Fail.
@@ -491,8 +491,8 @@ class ServerVerifyEmail(ServerBase):
             verify_id, correct_code, verify_count = row
             if correct_code == code:
                 if use:
-                    data = {'id': verify_id, 'use_time': ':NOW():', 'used': True}
-                    await conn.execute.update('verify_email', data)
+                    data = {'id': verify_id, 'verify_count': verify_count + 1, 'used': True}
+                    await conn.execute.update('verify_email', data, use_time= ':NOW()')
                 return True
 
             # Fail.
@@ -739,8 +739,8 @@ class ServerVerifyPhone(ServerBase):
             verify_id, correct_code, verify_count = row
             if correct_code == code:
                 if use:
-                    data = {'id': verify_id, 'use_time': ':NOW():', 'used': True}
-                    conn.execute.update('verify_phone', data)
+                    data = {'id': verify_id, 'verify_count': verify_count + 1, 'used': True}
+                    conn.execute.update('verify_phone', data, use_time=':NOW()')
                 return True
 
             # Fail.
@@ -800,8 +800,8 @@ class ServerVerifyPhone(ServerBase):
             verify_id, correct_code, verify_count = row
             if correct_code == code:
                 if use:
-                    data = {'id': verify_id, 'use_time': ':NOW():', 'used': True}
-                    await conn.execute.update('verify_phone', data)
+                    data = {'id': verify_id, 'verify_count': verify_count + 1, 'used': True}
+                    await conn.execute.update('verify_phone', data, use_time=':NOW()')
                 return True
 
             # Fail.
@@ -1171,7 +1171,7 @@ async def get_token(
     ## Email.
     if grant_type == 'email_code':
         client_email = server.api_auth_client_email
-        result = await client_email.async_verify('token', username, password, True)
+        result = await client_email.async_verify('login', username, password, True)
         if not result:
             exit_api(401)
         user_data = await get_user_data(conn, username, 'email')
@@ -1181,7 +1181,7 @@ async def get_token(
     ## Sms.
     if grant_type == 'phone_code':
         client_phone = server.api_auth_client_phone
-        result = await client_phone.async_verify('token', username, password)
+        result = await client_phone.async_verify('login', username, password)
         if not result:
             exit_api(401)
         user_data = await get_user_data(conn, username, 'phone')
@@ -1306,13 +1306,13 @@ async def check_user_exists(
     # Parameter.
     sql_where_parts = []
     kwdata = {}
-    if name is not None:
+    if type(name) == str:
         sql_where_parts.append('"name" = :name')
         kwdata['name'] = name
-    if email is not None:
+    if type(email) == str:
         sql_where_parts.append('"email" = :email')
         kwdata['email'] = email
-    if phone is not None:
+    if type(phone) == str:
         sql_where_parts.append('"phone" = :phone')
         kwdata['phone'] = phone
     if sql_where_parts == []:
@@ -1358,7 +1358,7 @@ async def update_user_name(
     """
 
     # Update.
-    sql_where = f'"user_id" = "{user.user_id}"'
+    sql_where = f'"user_id" = {user.user_id}'
     await sess.update(DatabaseORMTableUser).values(name=name).where(sql_where).execute()
 
 @router_auth.patch('/user/password')
@@ -1384,14 +1384,14 @@ async def update_user_password(
         exit_api(401)
 
     # Update.
-    new_password = hash_bcrypt(new_password)
-    sql_where = f'"user_id" = "{user.user_id}"'
-    await sess.update(DatabaseORMTableUser).values(password=new_password).where(sql_where).execute()
+    new_password_hash = hash_bcrypt(new_password).decode()
+    sql_where = f'"user_id" = {user.user_id}'
+    await sess.update(DatabaseORMTableUser).values(password=new_password_hash).where(sql_where).execute()
 
 @router_auth.patch('/user/email')
 async def update_user_email(
     new_email: str = Bind.i.body_k,
-    code: int = Bind.i.body_k,
+    code: str = Bind.i.body_k,
     user: Bind.User = Bind.user,
     sess: Bind.Sess = Bind.sess.auth,
     server: Bind.Server = Bind.server
@@ -1414,13 +1414,13 @@ async def update_user_email(
         exit_api(text='parameter "code" verification failed')
 
     # Update.
-    sql_where = f'"user_id" = "{user.user_id}"'
+    sql_where = f'"user_id" = {user.user_id}'
     await sess.update(DatabaseORMTableUser).values(email=new_email).where(sql_where).execute()
 
 @router_auth.patch('/user/phone')
 async def update_user_phone(
     new_phone: str = Bind.i.body_k,
-    code: int = Bind.i.body_k,
+    code: str = Bind.i.body_k,
     user: Bind.User = Bind.user,
     sess: Bind.Sess = Bind.sess.auth,
     server: Bind.Server = Bind.server
@@ -1443,7 +1443,7 @@ async def update_user_phone(
         exit_api(text='parameter "code" verification failed')
 
     # Update.
-    sql_where = f'"user_id" = "{user.user_id}"'
+    sql_where = f'"user_id" = {user.user_id}'
     await sess.update(DatabaseORMTableUser).values(phone=new_phone).where(sql_where).execute()
 
 @router_auth.patch('/user/avatar')
@@ -1465,7 +1465,7 @@ async def update_user_avatar(
     file_id = model_file_info.file_id
 
     # Update.
-    sql_where = f'"user_id" = "{user.user_id}"'
+    sql_where = f'"user_id" = {user.user_id}'
     await sess.update(DatabaseORMTableUser).values(avatar=file_id).where(sql_where).execute()
     await sess.commit()
 
@@ -1475,6 +1475,7 @@ async def update_user_avatar(
 async def send_email_code(
     scene: VerificationScenes = Bind.Body(max_length=20),
     email: Bind.Email = Bind.i.body,
+    conn: Bind.Conn = Bind.conn.auth,
     server: Bind.Server = Bind.server
 ) -> None:
     """
@@ -1490,9 +1491,10 @@ async def send_email_code(
     client_email = server.api_auth_client_email
 
     # Check.
-    is_exists = await check_user_exists(email=email)
-    if not is_exists:
-        exit_api(404, text='user email address not exists')
+    if scene == 'login':
+        is_exists = await check_user_exists(email=email, conn=conn)
+        if not is_exists:
+            exit_api(404, text='user email address not exists')
 
     # Send.
     await client_email.async_send(scene, email)
@@ -1501,6 +1503,7 @@ async def send_email_code(
 async def send_phone_code(
     scene: VerificationScenes = Bind.Body(max_length=20),
     phone: str = Bind.i.body,
+    conn: Bind.Conn = Bind.conn.auth,
     server: Bind.Server = Bind.server
 ) -> None:
     """
@@ -1516,9 +1519,10 @@ async def send_phone_code(
     client_sms = server.api_auth_client_phone
 
     # Check.
-    is_exists = await check_user_exists(phone=phone)
-    if not is_exists:
-        exit_api(404, text='user phone number not exists')
+    if scene == 'login':
+        is_exists = await check_user_exists(phone=phone, conn=conn)
+        if not is_exists:
+            exit_api(404, text='user phone number not exists')
 
     # Send.
     await client_sms.async_send(scene, phone)

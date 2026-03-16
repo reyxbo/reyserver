@@ -15,6 +15,7 @@ from contextlib import asynccontextmanager, _AsyncGeneratorContextManager
 from uvicorn import run as uvicorn_run
 from starlette.middleware.base import _StreamingResponse
 from fastapi import FastAPI, Request
+from fastapi.routing import APIRoute
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -22,7 +23,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi_cache import FastAPICache
 from redis.asyncio import Redis
 from reydb import DatabaseAsync
-from reykit.rbase import CoroutineFunctionSimple, Singleton, throw
+from reykit.rbase import Singleton, throw
 from reykit.ros import FileStore
 from reykit.rrand import randchar
 
@@ -67,9 +68,9 @@ class Server(ServerBase, Singleton):
         db_warm: bool = False,
         redis: Redis | None = None,
         redis_expire: int | None = None,
-        depend: CoroutineFunctionSimple | Sequence[CoroutineFunctionSimple] | None = None,
-        before: CoroutineFunctionSimple | Sequence[CoroutineFunctionSimple] | None = None,
-        after: CoroutineFunctionSimple | Sequence[CoroutineFunctionSimple] | None = None,
+        depend: Callable[[], Coroutine] | Sequence[Callable[[], Coroutine]] | None = None,
+        before: Callable[[], Coroutine] | Sequence[Callable[[], Coroutine]] | None = None,
+        after: Callable[[], Coroutine] | Sequence[Callable[[], Coroutine]] | None = None,
         prefix: str | None = None
     ) -> None:
         """
@@ -137,8 +138,8 @@ class Server(ServerBase, Singleton):
 
     def __create_lifespan(
         self,
-        before: CoroutineFunctionSimple | Sequence[CoroutineFunctionSimple] | None,
-        after: CoroutineFunctionSimple | Sequence[CoroutineFunctionSimple] | None,
+        before: Callable[[], Coroutine] | Sequence[Callable[[], Coroutine]] | None,
+        after: Callable[[], Coroutine] | Sequence[Callable[[], Coroutine]] | None,
         db_warm: bool,
         redis_expire: int | None
     ) -> _AsyncGeneratorContextManager[None, None]:
@@ -181,15 +182,32 @@ class Server(ServerBase, Singleton):
             for task in before:
                 await task()
 
-            ## Cache.
-            from fastapi.routing import APIRoute
-            for route in app.routes:
-                if isinstance(route, APIRoute):
-                    if hasattr(route.endpoint, '__cache__'):
-                        if route.tags is None:
-                            route.tags = ['cached']
-                        else:
-                            route.tags.append('cached')
+            ## Route.
+            for route in self.app.routes:
+                if not isinstance(route, APIRoute):
+                    continue
+
+                ## Check.
+                if not iscoroutinefunction(route.endpoint):
+                    throw(
+                        AssertionError,
+                        text=f'route "{route.path}" must be asynchronous'
+                    )
+                if (
+                    getattr(route.endpoint, '__cache__', False)
+                    and route.methods != {'GET'}
+                ):
+                    throw(
+                        AssertionError,
+                        text=f'route "{route.path}" with methods {", ".join(route.methods)} cannot have Redis cache enabled'
+                    )
+
+                ## Cache.
+                if getattr(route.endpoint, '__cache__', False):
+                    if route.tags is None:
+                        route.tags = ['cached']
+                    else:
+                        route.tags.append('cached')
 
             ## Databse.
             if db_warm:

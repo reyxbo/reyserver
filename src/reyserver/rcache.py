@@ -8,7 +8,7 @@
 @Explain : Cache methods.
 """
 
-from typing import Any
+from typing import Any, overload
 from collections.abc import Callable
 from functools import wraps
 from fastapi_cache import FastAPICache
@@ -72,14 +72,20 @@ def init_cache(redis: Redis, redis_expire: int | None = None) -> None:
         key_builder=key_builder
     )
 
-def wrap_cache(func_or_expire: CallableT | int | None = None) -> CallableT | Callable[[CallableT], CallableT]:
+@overload
+def wrap_cache(func_or_expire: CallableT) -> CallableT: ...
+
+@overload
+def wrap_cache(func_or_expire: int) -> Callable[[CallableT], CallableT]: ...
+
+def wrap_cache(func_or_expire: CallableT | int) -> CallableT | Callable[[CallableT], CallableT]:
     """
     Decorator, use Redis cache.
     When Redis is not set, then skip.
 
     Parameters
     ----------
-    func_or_expire : Decorated function or Redis cache expire seconds.
+    func_or_expire : Decorated coroutine function or Redis cache expire seconds.
 
     Returns
     -------
@@ -116,16 +122,16 @@ def wrap_cache(func_or_expire: CallableT | int | None = None) -> CallableT | Cal
         cache_decorator = fastapi_cache_cache(expire=expire)
         cache_func = cache_decorator(func)
         @wraps(func)
-        def wrapper(*args, **kwargs):
-            result = cache_func(*args, **kwargs)
+        async def wrapper(*args, **kwargs):
+            result = await cache_func(*args, **kwargs)
             return result
 
         return wrapper
 
-    ## No parameter.
+    ## Function.
     if callable(func_or_expire):
         return decorator(func_or_expire, None)
 
-    ## With parameter.
+    ## Parameter.
     else:
         return lambda func: decorator(func, func_or_expire)
