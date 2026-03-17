@@ -75,7 +75,7 @@ JSONToken = TypedDict(
     }
 )
 'JSON dictionary with Token string.'
-type VerificationScenes = Literal['login', 'signup', 'reset']
+type VerificationScenes = Literal['login', 'signup', 'reset', 'update']
 'Verification scene range.'
 
 class DatabaseORMTableUser(rorm.Table):
@@ -106,6 +106,7 @@ class DatabaseORMTableUser(rorm.Table):
             throw(ValueError, text='the start and end cannot be the character "-_"')
         if search('[-_]{2}', name) is not None:
             throw(ValueError, text='must not be contain consecutive characters "-_"')
+        return name
 
 class DatabaseORMTableRole(rorm.Table):
     """
@@ -220,6 +221,7 @@ class DatabaseORMModelUserInput(rorm.Model):
             throw(ValueError, text='the start and end cannot be the character "-_"')
         if search('[-_]{2}', name) is not None:
             throw(ValueError, text='must not be contain consecutive characters "-_"')
+        return name
 
 class DatabaseORMModelUserOut(rorm.Model):
     """
@@ -1135,7 +1137,7 @@ def encode_token(
 @router_auth.post('/token')
 async def get_token(
     grant_type: Literal['password', 'email_code', 'phone_code'] = Bind.i.form,
-    username: str = Bind.i.form,
+    username: str = Bind.Form(max_length=255),
     password: str = Bind.i.form,
     conn: Bind.Conn = Bind.conn.auth,
     server: Bind.Server = Bind.server
@@ -1149,7 +1151,7 @@ async def get_token(
         - `Literal['password']`: Use `name+password` or `email+password` or `phone+password`.
         - `Literal['email_code']`: Use `email+code`.
         - `Literal['phone_code']`: Use `phone+code`.
-    username : User name or email or phone number.
+    username : User name or email address or phone number.
     password : User password or verification code.
 
     Returns
@@ -1169,7 +1171,7 @@ async def get_token(
             exit_api(401)
 
     ## Email.
-    if grant_type == 'email_code':
+    elif grant_type == 'email_code':
         client_email = server.api_auth_client_email
         result = await client_email.async_verify('login', username, password, True)
         if not result:
@@ -1179,9 +1181,9 @@ async def get_token(
             exit_api(401)
 
     ## Sms.
-    if grant_type == 'phone_code':
+    elif grant_type == 'phone_code':
         client_phone = server.api_auth_client_phone
-        result = await client_phone.async_verify('login', username, password)
+        result = await client_phone.async_verify('login', username, password, True)
         if not result:
             exit_api(401)
         user_data = await get_user_data(conn, username, 'phone')
@@ -1282,11 +1284,60 @@ async def create_user(
 
     return response
 
+@router_auth.post('/password-resets')
+async def reset_password(
+    grant_type: Literal['email_code', 'phone_code'] = Bind.i.body,
+    account: str = Bind.Body(max_length=255),
+    code: str = Bind.Body(min_length=4, max_length=8),
+    new_password: str = Bind.Body(min_length=6, max_length=60),
+    conn: Bind.Conn = Bind.conn.auth,
+    sess: Bind.Sess = Bind.sess.auth,
+    server: Bind.Server = Bind.server
+) -> None:
+    """
+    Reset password.
+
+    Parameters
+    ----------
+    grant_type : Grant type.
+        - `Literal['email_code']`: Use `email+code`.
+        - `Literal['phone_code']`: Use `phone+code`.
+    account : Email address or phone number.
+    code : Verification code.
+    """
+
+    # Check.
+
+    ## Email.
+    if grant_type == 'email_code':
+        client_email = server.api_auth_client_email
+        result = await client_email.async_verify('reset', account, code, True)
+        if not result:
+            exit_api(401)
+        user_data = await get_user_data(conn, account, 'email')
+        if user_data is None:
+            exit_api(401)
+
+    ## Sms.
+    elif grant_type == 'phone_code':
+        client_phone = server.api_auth_client_phone
+        result = await client_phone.async_verify('reset', account, code, True)
+        if not result:
+            exit_api(401)
+        user_data = await get_user_data(conn, account, 'phone')
+        if user_data is None:
+            exit_api(401)
+
+    # Update.
+    new_password_hash = hash_bcrypt(new_password).decode()
+    sql_where = f'"user_id" = {user_data['user_id']}'
+    await sess.update(DatabaseORMTableUser).values(password=new_password_hash).where(sql_where).execute()
+
 @router_auth.get('/users/exists')
 async def check_user_exists(
-    name: str | None = Bind.i.query_n,
-    email: str | None = Bind.i.query_n,
-    phone: str | None = Bind.i.query_n,
+    name: str | None = Bind.Query(None, min_length=3, max_length=50),
+    email: str | None = Bind.Query(None, max_length=255),
+    phone: str | None = Bind.Query(None, min_length=11, max_length=11),
     conn: Bind.Conn = Bind.conn.auth
 ) -> bool:
     """
@@ -1345,7 +1396,7 @@ async def get_user_info(
 
 @router_auth.patch('/user/name')
 async def update_user_name(
-    name: str = Bind.i.body_k,
+    name: str = Bind.Body(embed=True, min_length=3, max_length=50),
     user: Bind.User = Bind.user,
     sess: Bind.Sess = Bind.sess.auth
 ) -> None:
@@ -1363,8 +1414,8 @@ async def update_user_name(
 
 @router_auth.patch('/user/password')
 async def update_user_password(
-    password: str = Bind.i.body_k,
-    new_password: str = Bind.i.body_k,
+    password: str = Bind.Body(min_length=6, max_length=60),
+    new_password: str = Bind.Body(min_length=6, max_length=60),
     user: Bind.User = Bind.user,
     conn: Bind.Conn = Bind.conn.auth,
     sess: Bind.Sess = Bind.sess.auth
@@ -1390,8 +1441,8 @@ async def update_user_password(
 
 @router_auth.patch('/user/email')
 async def update_user_email(
-    new_email: str = Bind.i.body_k,
-    code: str = Bind.i.body_k,
+    new_email: str = Bind.i.body,
+    code: str = Bind.Body(min_length=4, max_length=8),
     user: Bind.User = Bind.user,
     sess: Bind.Sess = Bind.sess.auth,
     server: Bind.Server = Bind.server
@@ -1409,7 +1460,7 @@ async def update_user_email(
     client_email = server.api_auth_client_email
 
     # Check.
-    result = await client_email.async_verify('reset', new_email, code, True)
+    result = await client_email.async_verify('update', new_email, code, True)
     if not result:
         exit_api(text='parameter "code" verification failed')
 
@@ -1419,8 +1470,8 @@ async def update_user_email(
 
 @router_auth.patch('/user/phone')
 async def update_user_phone(
-    new_phone: str = Bind.i.body_k,
-    code: str = Bind.i.body_k,
+    new_phone: str = Bind.i.body,
+    code: str = Bind.Body(min_length=4, max_length=8),
     user: Bind.User = Bind.user,
     sess: Bind.Sess = Bind.sess.auth,
     server: Bind.Server = Bind.server
@@ -1438,7 +1489,7 @@ async def update_user_phone(
     client_phone = server.api_auth_client_phone
 
     # Check.
-    result = await client_phone.async_verify('reset', new_phone, code, True)
+    result = await client_phone.async_verify('update', new_phone, code, True)
     if not result:
         exit_api(text='parameter "code" verification failed')
 
@@ -1474,7 +1525,7 @@ async def update_user_avatar(
 @router_auth.post('/email-codes')
 async def send_email_code(
     scene: VerificationScenes = Bind.Body(max_length=20),
-    email: Bind.Email = Bind.i.body,
+    email: Bind.Email = Bind.Body(max_length=255),
     conn: Bind.Conn = Bind.conn.auth,
     server: Bind.Server = Bind.server
 ) -> None:
@@ -1502,7 +1553,7 @@ async def send_email_code(
 @router_auth.post('/phone-codes')
 async def send_phone_code(
     scene: VerificationScenes = Bind.Body(max_length=20),
-    phone: str = Bind.i.body,
+    phone: str = Bind.Body(min_length=11, max_length=11),
     conn: Bind.Conn = Bind.conn.auth,
     server: Bind.Server = Bind.server
 ) -> None:
@@ -1530,7 +1581,7 @@ async def send_phone_code(
 @router_auth.post('/email_codes/verify')
 async def verify_email_code(
     scene: VerificationScenes = Bind.Body(max_length=20),
-    email: Bind.Email = Bind.i.body,
+    email: Bind.Email = Bind.Body(max_length=255),
     code: str = Bind.Body(min_length=4, max_length=8),
     server: Bind.Server = Bind.server
 ) -> bool:
@@ -1559,7 +1610,7 @@ async def verify_email_code(
 @router_auth.post('/phone_codes/verify')
 async def verify_phone_code(
     scene: VerificationScenes = Bind.Body(max_length=20),
-    phone: str = Bind.i.body,
+    phone: str = Bind.Body(min_length=11, max_length=11),
     code: str = Bind.Body(min_length=4, max_length=8),
     server: Bind.Server = Bind.server
 ) -> bool:
