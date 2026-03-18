@@ -1166,7 +1166,7 @@ def encode_token(
     return token
 
 @router_auth.post('/token')
-async def get_token(
+async def create_token(
     grant_type: Literal['password', 'email_code', 'phone_code'] = Bind.i.form,
     username: str = Bind.Form(max_length=255),
     password: str = Bind.i.form,
@@ -1174,7 +1174,7 @@ async def get_token(
     server: Bind.Server = Bind.server
 ) -> ResponseToken:
     """
-    Get token.
+    Create token.
 
     Parameters
     ----------
