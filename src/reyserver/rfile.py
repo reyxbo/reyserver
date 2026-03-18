@@ -288,10 +288,6 @@ async def get_file_sign_url(
 
     from .rauth import encode_token
 
-    # Check.
-    if not server.is_started_auth:
-        exit_api(404)
-
     # Token.
     token = encode_token(
         'file',
@@ -325,6 +321,10 @@ async def download_sign_file(
     """
 
     from .rauth import TokenDataFile
+
+    # Check.
+    if not server.is_started_auth:
+        exit_api(401)
 
     # Decode.
     token_data: TokenDataFile | None = decode_jwt(token, server.api_auth_key)
