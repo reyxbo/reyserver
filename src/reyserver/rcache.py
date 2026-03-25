@@ -11,6 +11,7 @@
 from typing import Any, overload
 from collections.abc import Callable
 from functools import wraps
+from fastapi import Request, Response
 from fastapi_cache import FastAPICache
 from fastapi_cache.coder import PickleCoder
 from fastapi_cache.backends.redis import RedisBackend
@@ -37,6 +38,9 @@ def init_cache(redis: Redis, redis_expire: int | None = None) -> None:
 
     def key_builder(
         func: Callable,
+        namespace: str,
+        request: Request,
+        response: Response,
         args: tuple,
         kwargs: dict[str, Any],
     ) -> str:
