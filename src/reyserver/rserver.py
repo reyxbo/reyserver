@@ -273,9 +273,15 @@ class Server(ServerBase, Singleton):
             elif (
                 response.status_code == 200
                 and request.method in ('PUT', 'PATCH', 'DELETE')
-                and not getattr(response, 'body', False)
+                and getattr(response, 'body', None) == None
             ):
-                response.status_code = 204
+                endpoint = request.scope.get('endpoint')
+                if (
+                    endpoint is not None
+                    and endpoint.__annotations__.get('return', False) is None
+                ):
+                    response.status_code = 204
+
             elif response.status_code == 401:
                 response.headers.setdefault('WWW-Authenticate', 'Bearer')
 
