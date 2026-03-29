@@ -1569,7 +1569,8 @@ async def update_user_phone(
 async def update_user_avatar(
     avatar: Bind.UploadFile = Bind.i.forms,
     user: Bind.User = Bind.user,
-    sess: Bind.Sess = Bind.sess.auth,
+    sess_file: Bind.Sess = Bind.sess.file,
+    sess_auth: Bind.Sess = Bind.sess.auth,
     server: Bind.Server = Bind.server
 ) -> ServerORMModelAuthUserOut:
     """
@@ -1591,13 +1592,13 @@ async def update_user_avatar(
         name=avatar.filename,
         note='Avatar image.',
         user=user,
-        sess=sess,
+        sess=sess_file,
         server=server
     )
 
     # Update.
     sql_where = f'"user_id" = {user.user_id}'
-    model_user, = await sess.update(ServerORMAuthTableUser).values(avatar=model_file_info.file_id).where(sql_where).execute_return()
+    model_user, = await sess_auth.update(ServerORMAuthTableUser).values(avatar=model_file_info.file_id).where(sql_where).execute_return()
     model_user_out = ServerORMModelAuthUserOut.model_validate(model_user)
 
     return model_user_out
