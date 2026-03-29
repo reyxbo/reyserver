@@ -1567,7 +1567,7 @@ async def update_user_phone(
 
 @router_auth.patch('/user/avatar')
 async def update_user_avatar(
-    avatar: Bind.UploadFile = Bind.i.form,
+    avatar: Bind.UploadFile = Bind.i.forms,
     user: Bind.User = Bind.user,
     sess: Bind.Sess = Bind.sess.auth,
     server: Bind.Server = Bind.server
@@ -1588,6 +1588,7 @@ async def update_user_avatar(
     _, model_file_info = await depend_file(
         avatar,
         'public',
+        name=avatar.filename,
         note='Avatar image.',
         user=user,
         sess=sess,
